@@ -197,7 +197,7 @@ class OverworldScene extends Phaser.Scene {
         this.drawMap();
 
         this.player.sprite = this.add.sprite(this.player.x * TILE_SIZE, this.player.y * TILE_SIZE, 'player').setOrigin(0);
-        this.player.sprite.anims.play('player_idle', true);
+        //this.player.sprite.anims.play('player_idle', true);
 
         this.cursors = this.input.keyboard.createCursorKeys();
         this.uiText = this.add.text(10, 10, '', { fontSize: '16px', fill: '#fff' });
@@ -346,7 +346,7 @@ class DungeonScene extends Phaser.Scene {
         this.player.x = startRoom.center.x;
         this.player.y = startRoom.center.y;
         this.player.sprite = this.add.sprite(this.player.x * TILE_SIZE, this.player.y * TILE_SIZE, 'player').setOrigin(0);
-        this.player.sprite.anims.play('player_idle', true);
+        //this.player.sprite.anims.play('player_idle', true);
         this.entityGroup.add(this.player.sprite);
 
         this.spawnEntities();

@@ -454,7 +454,7 @@ class DungeonScene extends Phaser.Scene {
         this.player = null;
         this.enemies = [];
         this.items = [];
-        this.events = [];
+        this.roomEvents = []; // <-- rinominato
         this.fov = [];
         this.turn = 'player';
         this.cursors = null;
@@ -462,8 +462,8 @@ class DungeonScene extends Phaser.Scene {
         this.seed = 0;
         this.rng = null;
         this.entrance = null;
-        this.tileTexts = []; // testi sfondo (pavimenti, muri, scale)
-        this.entityTexts = []; // testi entità (player, nemici, oggetti)
+        this.tileTexts = [];
+        this.entityTexts = [];
     }
     init(data) {
         this.seed = data.seed;
@@ -477,9 +477,9 @@ class DungeonScene extends Phaser.Scene {
 
         this.fov = Array(DUNGEON_HEIGHT).fill().map(() => Array(DUNGEON_WIDTH).fill(0));
         this.tileTexts = Array(DUNGEON_HEIGHT).fill().map(() => Array(DUNGEON_WIDTH).fill(null));
-        this.entityTexts = []; // sarà un array di testi per entità
+        this.entityTexts = [];
 
-        this.drawMap(); // disegna sfondo
+        this.drawMap();
 
         const startRoom = this.rooms[0];
         this.player.x = startRoom.center.x;
@@ -525,7 +525,7 @@ class DungeonScene extends Phaser.Scene {
         for (let room of this.rooms.slice(1)) {
             if (this.rng.nextFloat() < 0.3) {
                 const eventType = this.rng.choice(['trap', 'merchant', 'shrine', 'ambush']);
-                this.events.push({ x: room.center.x, y: room.center.y, type: eventType });
+                this.roomEvents.push({ x: room.center.x, y: room.center.y, type: eventType }); // <-- rinominato
             }
         }
     }
@@ -544,9 +544,9 @@ class DungeonScene extends Phaser.Scene {
         for (let y = 0; y < DUNGEON_HEIGHT; y++) {
             for (let x = 0; x < DUNGEON_WIDTH; x++) {
                 let char, color;
-                if (this.map[y][x] === 1) { char = '#'; color = '#8b4513'; } // muro marrone
-                else if (this.map[y][x] === 2) { char = '>'; color = '#00f'; } // scale blu
-                else { char = '.'; color = '#aaa'; } // pavimento grigio
+                if (this.map[y][x] === 1) { char = '#'; color = '#8b4513'; }
+                else if (this.map[y][x] === 2) { char = '>'; color = '#00f'; }
+                else { char = '.'; color = '#aaa'; }
                 const text = this.add.text(x * TILE_SIZE, y * TILE_SIZE, char, { ...FONT_STYLE, fill: color }).setOrigin(0);
                 this.tileTexts[y][x] = text;
             }
@@ -586,7 +586,6 @@ class DungeonScene extends Phaser.Scene {
             const isMaterial = this.rng.nextFloat() < 0.5;
             const item = Item.random(this.rng, this.depth, isMaterial);
             item.x = x; item.y = y;
-            // Assegna carattere in base al tipo
             if (isMaterial) {
                 switch (item.type) {
                     case 'bone': item.char = ';'; item.color = '#fff'; break;
@@ -639,13 +638,12 @@ class DungeonScene extends Phaser.Scene {
         }
     }
     updateFog() {
-        // Imposta alpha/colore in base a fov
         for (let y = 0; y < DUNGEON_HEIGHT; y++) {
             for (let x = 0; x < DUNGEON_WIDTH; x++) {
                 const tile = this.tileTexts[y][x];
                 if (this.fov[y][x] === 2) {
                     tile.setAlpha(1);
-                    tile.setColor(tile.style.color); // ripristina colore originale
+                    tile.setColor(tile.style.color);
                 } else if (this.fov[y][x] === 1) {
                     tile.setAlpha(0.5);
                 } else {
@@ -653,7 +651,6 @@ class DungeonScene extends Phaser.Scene {
                 }
             }
         }
-        // Entità visibili solo se la cella è visibile (fov=2)
         this.entityTexts.forEach(text => {
             const x = Math.floor(text.x / TILE_SIZE);
             const y = Math.floor(text.y / TILE_SIZE);
@@ -663,7 +660,6 @@ class DungeonScene extends Phaser.Scene {
                 text.setAlpha(0);
             }
         });
-        // Player sempre visibile
         this.playerText.setAlpha(1);
     }
     playerAttack(enemy) {
@@ -680,7 +676,6 @@ class DungeonScene extends Phaser.Scene {
             for (let i = 0; i < numMaterials; i++) {
                 const material = Item.random(this.rng, this.depth, true);
                 material.x = enemy.x; material.y = enemy.y;
-                // assegna carattere
                 switch (material.type) {
                     case 'bone': material.char = ';'; material.color = '#fff'; break;
                     case 'leather': material.char = ';'; material.color = '#cd853f'; break;
@@ -792,10 +787,10 @@ class DungeonScene extends Phaser.Scene {
             this.entityTexts = this.entityTexts.filter(t => t !== item.text);
         }
 
-        const evt = this.events.find(e => e.x === newX && e.y === newY);
+        const evt = this.roomEvents.find(e => e.x === newX && e.y === newY); // <-- rinominato
         if (evt) {
             this.triggerEvent(evt);
-            this.events = this.events.filter(e => e !== evt);
+            this.roomEvents = this.roomEvents.filter(e => e !== evt); // <-- rinominato
         }
 
         this.player.x = newX;

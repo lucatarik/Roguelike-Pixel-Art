@@ -1,21 +1,43 @@
-// game.js v4.0 – COMPLETO e FUNZIONANTE con la tua struttura DawnLike piatta
-const TILE_SIZE = 16;
+// game.js - Roguelike in ASCII (senza sprite)
+// Richiede: Phaser 3, EasyStar (opzionale), localForage, SimplexNoise
+
+// ==================== CONFIGURAZIONE ====================
+const TILE_SIZE = 16; // usato solo per posizionamento testi
 const WORLD_WIDTH = 80;
 const WORLD_HEIGHT = 60;
 const DUNGEON_WIDTH = 40;
 const DUNGEON_HEIGHT = 30;
 
-const simplex = new SimplexNoise(); // fallback semplice (funziona anche senza libreria)
+// Font
+const FONT_STYLE = { fontSize: '16px', fontFamily: 'Courier New, monospace', fill: '#fff' };
 
+// Perlin noise (con fallback)
+let simplex;
+if (typeof SimplexNoise !== 'undefined') {
+    simplex = new SimplexNoise();
+} else {
+    console.warn("SimplexNoise non trovato, uso rumore casuale semplice.");
+    simplex = { noise2D: (x, y) => Math.sin(x * 10) * Math.cos(y * 10) };
+}
+
+// ==================== UTILITY ====================
 class RNG {
     constructor(seed) {
         this.seed = seed % 2147483647;
         if (this.seed <= 0) this.seed += 2147483646;
     }
-    next() { return this.seed = this.seed * 16807 % 2147483647; }
-    nextFloat() { return (this.next() - 1) / 2147483646; }
-    range(min, max) { return Math.floor(this.nextFloat() * (max - min + 1)) + min; }
-    choice(array) { return array[this.range(0, array.length - 1)]; }
+    next() {
+        return this.seed = this.seed * 16807 % 2147483647;
+    }
+    nextFloat() {
+        return (this.next() - 1) / 2147483646;
+    }
+    range(min, max) {
+        return Math.floor(this.nextFloat() * (max - min + 1)) + min;
+    }
+    choice(array) {
+        return array[this.range(0, array.length - 1)];
+    }
     shuffle(array) {
         for (let i = array.length - 1; i > 0; i--) {
             const j = Math.floor(this.nextFloat() * (i + 1));
@@ -25,9 +47,36 @@ class RNG {
     }
 }
 
+// Pathfinding BFS sincrono
+function bfsPath(grid, start, goal, maxDist = 50) {
+    const queue = [{ x: start.x, y: start.y, path: [start] }];
+    const visited = new Set();
+    visited.add(`${start.x},${start.y}`);
+
+    while (queue.length > 0) {
+        const { x, y, path } = queue.shift();
+        if (path.length > maxDist) continue;
+        if (x === goal.x && y === goal.y) return path;
+
+        const dirs = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+        for (let [dx, dy] of dirs) {
+            const nx = x + dx, ny = y + dy;
+            if (nx < 0 || nx >= DUNGEON_WIDTH || ny < 0 || ny >= DUNGEON_HEIGHT) continue;
+            if (grid[ny][nx] === 1) continue; // muro
+            const key = `${nx},${ny}`;
+            if (!visited.has(key)) {
+                visited.add(key);
+                queue.push({ x: nx, y: ny, path: [...path, { x: nx, y: ny }] });
+            }
+        }
+    }
+    return null;
+}
+
+// ==================== CLASSI DI GIOCO ====================
 class StatusEffect {
     constructor(type, duration, damagePerTurn) {
-        this.type = type;
+        this.type = type; // 'poison', 'burn'
         this.duration = duration;
         this.damagePerTurn = damagePerTurn;
     }
@@ -39,50 +88,58 @@ class StatusEffect {
 
 class Item {
     constructor(type, rarity, stats, materialDrop = false) {
-        this.type = type;
-        this.rarity = rarity;
+        this.type = type; // 'weapon', 'armor', 'potion', 'material'
+        this.rarity = rarity; // 0-3 o -1 per materiali
         this.stats = stats || {};
         this.materialDrop = materialDrop;
     }
     static random(rng, level, isMaterial = false) {
         if (isMaterial) {
-            const mats = ['bone','leather','cloth','iron_ore'];
-            return new Item(rng.choice(mats), -1, {}, true);
+            const materials = ['bone', 'leather', 'cloth', 'iron_ore'];
+            return new Item(rng.choice(materials), -1, {}, true);
         }
-        const r = rng.nextFloat();
-        let rarity = r < 0.5 ? 0 : r < 0.8 ? 1 : r < 0.95 ? 2 : 3;
-        const type = rng.choice(['weapon','armor','potion']);
+        const rarityRoll = rng.nextFloat();
+        let rarity;
+        if (rarityRoll < 0.5) rarity = 0;
+        else if (rarityRoll < 0.8) rarity = 1;
+        else if (rarityRoll < 0.95) rarity = 2;
+        else rarity = 3;
+
+        const type = rng.choice(['weapon', 'armor', 'potion']);
         const stats = {
-            hpBonus: type === 'potion' ? rng.range(5,15) * (rarity+1) : 0,
-            attackBonus: type === 'weapon' ? rng.range(1,5) * (rarity+1) : 0,
-            defenseBonus: type === 'armor' ? rng.range(1,3) * (rarity+1) : 0,
-            critChance: type === 'weapon' ? (rarity+1)*0.05 : 0
+            hpBonus: type === 'potion' ? rng.range(5, 15) * (rarity + 1) : 0,
+            attackBonus: type === 'weapon' ? rng.range(1, 5) * (rarity + 1) : 0,
+            defenseBonus: type === 'armor' ? rng.range(1, 3) * (rarity + 1) : 0,
+            critChance: type === 'weapon' ? (rarity + 1) * 0.05 : 0
         };
         return new Item(type, rarity, stats);
     }
 }
 
 class Recipe {
-    constructor(name, resultType, resultRarity, materials) {
+    constructor(name, resultType, resultRarity, materials, skillRequired) {
         this.name = name;
         this.resultType = resultType;
         this.resultRarity = resultRarity;
-        this.materials = materials;
+        this.materials = materials; // [{type:'bone', qty:2}]
+        this.skillRequired = skillRequired || 0;
     }
     canCraft(player) {
         for (let mat of this.materials) {
-            if (player.materials.filter(m => m.type === mat.type).length < mat.qty) return false;
+            const count = player.materials.filter(m => m.type === mat.type).length;
+            if (count < mat.qty) return false;
         }
         return true;
     }
     craft(player) {
         for (let mat of this.materials) {
             for (let i = 0; i < mat.qty; i++) {
-                const idx = player.materials.findIndex(m => m.type === mat.type);
-                if (idx !== -1) player.materials.splice(idx, 1);
+                const index = player.materials.findIndex(m => m.type === mat.type);
+                if (index !== -1) player.materials.splice(index, 1);
             }
         }
-        const item = Item.random(new RNG(Date.now()), 1);
+        const rng = new RNG(Date.now());
+        const item = Item.random(rng, 1);
         item.type = this.resultType;
         item.rarity = this.resultRarity;
         player.inventory.push(item);
@@ -90,78 +147,158 @@ class Recipe {
     }
 }
 
-class Skill { /* identico al tuo */ 
-    constructor(name, description, maxLevel, effects) { this.name = name; this.description = description; this.maxLevel = maxLevel; this.level = 0; this.effects = effects; }
-    apply(player) { this.effects(player, this.level); }
-}
-
-class Player { /* identico al tuo */ 
-    constructor() {
-        this.hp = 30; this.maxHp = 30; this.attack = 5; this.defense = 2; this.critChance = 0.05;
-        this.skillPoints = 0; this.skills = []; this.inventory = []; this.materials = []; this.effects = [];
-        this.x = 0; this.y = 0; this.gold = 0; this.sprite = null;
+class Skill {
+    constructor(name, description, maxLevel, effects) {
+        this.name = name;
+        this.description = description;
+        this.maxLevel = maxLevel;
+        this.level = 0;
+        this.effects = effects;
     }
-    equip(item) { /* identico */ }
-    takeDamage(dmg) { /* identico */ }
-    attackRoll() { /* identico */ }
-    updateEffects() { /* identico */ }
+    apply(player) {
+        this.effects(player, this.level);
+    }
 }
 
-class Enemy { /* identico al tuo */ 
-    constructor(type, x, y, level, rng) { /* ... tutto identico ... */ }
+class Player {
+    constructor() {
+        this.hp = 30;
+        this.maxHp = 30;
+        this.attack = 5;
+        this.defense = 2;
+        this.critChance = 0.05;
+        this.skillPoints = 0;
+        this.skills = [];
+        this.inventory = [];
+        this.materials = [];
+        this.effects = [];
+        this.x = 0;
+        this.y = 0;
+        this.recipes = [];
+        this.gold = 0;
+        this.char = '@'; // carattere ASCII
+        this.color = '#0f0'; // verde
+    }
+    equip(item) {
+        if (item.type === 'weapon') {
+            this.attack += item.stats.attackBonus;
+            this.critChance += item.stats.critChance;
+        } else if (item.type === 'armor') {
+            this.defense += item.stats.defenseBonus;
+        } else if (item.type === 'potion') {
+            this.hp = Math.min(this.hp + item.stats.hpBonus, this.maxHp);
+        }
+    }
+    takeDamage(dmg) {
+        const mitigated = Math.max(1, dmg - this.defense);
+        this.hp -= mitigated;
+        return mitigated;
+    }
+    attackRoll() {
+        const dmg = this.attack + Math.floor(Math.random() * 3);
+        const isCrit = Math.random() < this.critChance;
+        return isCrit ? dmg * 2 : dmg;
+    }
+    updateEffects() {
+        this.effects = this.effects.filter(e => e.duration > 0);
+        this.effects.forEach(e => e.apply(this));
+    }
 }
 
-class BossPattern { /* identico al tuo */ }
+class Enemy {
+    constructor(type, x, y, level, rng) {
+        this.type = type; // 'normal' o 'boss'
+        this.x = x;
+        this.y = y;
+        this.level = level;
+        this.hp = 10 + level * 5;
+        this.maxHp = this.hp;
+        this.attack = 3 + level;
+        this.defense = 1 + Math.floor(level / 2);
+        this.critChance = 0.05;
+        this.effects = [];
+        this.pattern = null;
+        if (type === 'boss') {
+            this.hp *= 3;
+            this.maxHp = this.hp;
+            this.attack *= 2;
+            this.defense *= 2;
+            this.pattern = new BossPattern(this, rng);
+            this.char = 'B';
+            this.color = '#f0f'; // magenta
+        } else {
+            // Goblin o ogre casuale
+            this.subtype = rng.choice(['goblin', 'ogre']);
+            this.char = this.subtype === 'goblin' ? 'g' : 'O';
+            this.color = '#f00'; // rosso
+        }
+    }
+    attackRoll() {
+        const dmg = this.attack + Math.floor(Math.random() * 3);
+        const isCrit = Math.random() < this.critChance;
+        return isCrit ? dmg * 2 : dmg;
+    }
+    takeDamage(dmg) {
+        this.hp -= Math.max(1, dmg - this.defense);
+    }
+}
 
-function bfsPath(grid, start, goal, maxDist = 50) { /* il tuo BFS identico */ }
+class BossPattern {
+    constructor(boss, rng) {
+        this.boss = boss;
+        this.rng = rng;
+        this.phase = 0;
+        this.turnCounter = 0;
+    }
+    act(scene) {
+        this.turnCounter++;
+        if (this.boss.hp < this.boss.maxHp * 0.5 && this.phase === 0) {
+            this.phase = 1;
+            scene.showMessage("Il boss si infuria! Attacco +2");
+            this.boss.attack += 2;
+        }
+        if (this.boss.hp < this.boss.maxHp * 0.2 && this.phase === 1) {
+            this.phase = 2;
+            scene.showMessage("Il boss evoca minion!");
+            for (let i = 0; i < 2; i++) {
+                scene.spawnEnemyNearBoss();
+            }
+        }
+        if (this.turnCounter % 3 === 0) {
+            scene.showMessage("Il boss carica un colpo potente!");
+            return { type: 'charge', damage: this.boss.attack * 2 };
+        } else {
+            return { type: 'normal', damage: this.boss.attackRoll() };
+        }
+    }
+}
 
 // ==================== SCENE ====================
 class BootScene extends Phaser.Scene {
-    constructor() { super('BootScene'); }
+    constructor() {
+        super('BootScene');
+    }
     preload() {
-        const p = 'dawnlike/';
-        // === TUA STRUTTURA PIATTA ===
-        this.load.spritesheet('player', p + 'Characters/Player0.png', {frameWidth:16, frameHeight:16});
-        this.load.spritesheet('enemy_goblin', p + 'Characters/Humanoid0.png', {frameWidth:16, frameHeight:16});
-        this.load.spritesheet('enemy_ogre', p + 'Characters/Quadraped0.png', {frameWidth:16, frameHeight:16});
-        this.load.spritesheet('boss', p + 'Characters/Demon1.png', {frameWidth:16, frameHeight:16});
-
-        this.load.image('potion', p + 'Items/Potion.png');
-        this.load.image('weapon', p + 'Items/ShortWep.png');
-        this.load.image('armor', p + 'Items/Armor.png');
-        this.load.image('bone', p + 'Items/Rock.png');
-        this.load.image('leather', p + 'Items/Flesh.png');
-        this.load.image('cloth', p + 'Items/Hat.png');
-        this.load.image('iron_ore', p + 'Items/Rock.png');
-
-        // Dungeon (sottocartelle standard DawnLike – se non le hai, scaricale dal zip originale)
-        this.load.image('floor', p + 'Objects/Floor.png');
-        this.load.image('wall', p + 'Objects/Wall.png');
-        this.load.image('stairs', p + 'Objects/Pit1.png');
-        this.load.image('fog', p + 'Objects/Tile.png');
-
-        // Overworld
-        this.load.image('grass', p + 'Objects/Hill0.png');
-        this.load.image('forest', p + 'Objects/Hill1.png');
-        this.load.image('mountain', p + 'Objects/Ore0.png');
-        this.load.image('water', p + 'Objects/Ore1.png');
-        this.load.image('dungeon_entrance', p + 'Objects/Door0.png');
+        // Nessuna immagine da caricare
     }
     create() {
-        // animazioni (identiche alle tue)
-      //  this.anims.create({key:'player_idle', frames:this.anims.generateFrameNumbers('player',{start:0,end:1}), frameRate:2, repeat:-1});
-       // this.anims.create({key:'goblin_idle', frames:this.anims.generateFrameNumbers('enemy_goblin',{start:0,end:1}), frameRate:2, repeat:-1});
-        //this.anims.create({key:'ogre_idle', frames:this.anims.generateFrameNumbers('enemy_ogre',{start:0,end:1}), frameRate:2, repeat:-1});
-        //this.anims.create({key:'boss_idle', frames:this.anims.generateFrameNumbers('boss',{start:0,end:1}), frameRate:2, repeat:-1});
-
-        localforage.getItem('save').then(save => this.scene.start('OverworldScene', {loadSave: !!save, save}));
+        // Carica salvataggio
+        localforage.getItem('save').then(save => {
+            if (save) {
+                this.registry.set('save', save);
+                this.scene.start('OverworldScene', { loadSave: true });
+            } else {
+                this.scene.start('OverworldScene', { loadSave: false });
+            }
+        }).catch(() => {
+            this.scene.start('OverworldScene', { loadSave: false });
+        });
     }
 }
 
 class OverworldScene extends Phaser.Scene {
     constructor() {
         super('OverworldScene');
-        this.map = [];
         this.biomeMap = [];
         this.player = null;
         this.cursors = null;
@@ -169,6 +306,8 @@ class OverworldScene extends Phaser.Scene {
         this.rng = new RNG(this.seed);
         this.craftingSceneActive = false;
         this.dungeonEntrances = [];
+        this.tileTexts = []; // matrice di testi per lo sfondo
+        this.playerText = null; // testo per il player
     }
     init(data) {
         this.loadSave = data.loadSave;
@@ -181,7 +320,6 @@ class OverworldScene extends Phaser.Scene {
             this.player = save.player;
             this.seed = save.seed;
             this.rng = new RNG(this.seed);
-            this.map = save.overworldMap;
             this.biomeMap = save.biomeMap;
             this.player.x = save.player.x;
             this.player.y = save.player.y;
@@ -191,16 +329,14 @@ class OverworldScene extends Phaser.Scene {
             do {
                 this.player.x = this.rng.range(0, WORLD_WIDTH - 1);
                 this.player.y = this.rng.range(0, WORLD_HEIGHT - 1);
-            } while (this.biomeMap[this.player.y][this.player.x] === 3);
+            } while (this.biomeMap[this.player.y][this.player.x] === 3); // 3=acqua
         }
 
-        this.drawMap();
-
-        this.player.sprite = this.add.sprite(this.player.x * TILE_SIZE, this.player.y * TILE_SIZE, 'player').setOrigin(0);
-        //this.player.sprite.anims.play('player_idle', true);
+        this.drawMap(); // crea testi dello sfondo
+        this.playerText = this.add.text(this.player.x * TILE_SIZE, this.player.y * TILE_SIZE, this.player.char, { ...FONT_STYLE, fill: this.player.color }).setOrigin(0);
 
         this.cursors = this.input.keyboard.createCursorKeys();
-        this.uiText = this.add.text(10, 10, '', { fontSize: '16px', fill: '#fff' });
+        this.uiText = this.add.text(10, 10, '', { fontSize: '16px', fill: '#fff', fontFamily: 'monospace' });
         this.updateUI();
 
         this.time.addEvent({ delay: 10000, callback: this.saveGame, callbackScope: this, loop: true });
@@ -215,10 +351,10 @@ class OverworldScene extends Phaser.Scene {
                 const e = simplex.noise2D(nx * 2, ny * 2);
                 const m = simplex.noise2D(nx * 4 + 100, ny * 4 + 100);
                 let biome;
-                if (e < -0.2) biome = 3;
-                else if (m > 0.3) biome = 2;
-                else if (e > 0.2) biome = 1;
-                else biome = 0;
+                if (e < -0.2) biome = 3; // acqua
+                else if (m > 0.3) biome = 2; // montagna
+                else if (e > 0.2) biome = 1; // foresta
+                else biome = 0; // prateria
                 row.push(biome);
             }
             this.biomeMap.push(row);
@@ -231,21 +367,24 @@ class OverworldScene extends Phaser.Scene {
                 y = this.rng.range(0, WORLD_HEIGHT - 1);
             } while (this.biomeMap[y][x] === 3 || this.dungeonEntrances.some(d => d.x === x && d.y === y));
             this.dungeonEntrances.push({ x, y, depth: 1 });
-            this.biomeMap[y][x] = 4;
+            this.biomeMap[y][x] = 4; // dungeon
         }
     }
     drawMap() {
+        // Crea testi per ogni cella di sfondo
         for (let y = 0; y < WORLD_HEIGHT; y++) {
+            this.tileTexts[y] = [];
             for (let x = 0; x < WORLD_WIDTH; x++) {
-                let tex;
+                let char, color;
                 switch (this.biomeMap[y][x]) {
-                    case 0: tex = 'grass'; break;
-                    case 1: tex = 'forest'; break;
-                    case 2: tex = 'mountain'; break;
-                    case 3: tex = 'water'; break;
-                    case 4: tex = 'dungeon_entrance'; break;
+                    case 0: char = '.'; color = '#6b8e23'; break; // prateria verde scuro
+                    case 1: char = '&'; color = '#228b22'; break; // foresta verde
+                    case 2: char = '^'; color = '#8b8b8b'; break; // montagna grigio
+                    case 3: char = '~'; color = '#1e90ff'; break; // acqua blu
+                    case 4: char = 'D'; color = '#9400d3'; break; // dungeon viola
                 }
-                this.add.sprite(x * TILE_SIZE, y * TILE_SIZE, tex).setOrigin(0);
+                const text = this.add.text(x * TILE_SIZE, y * TILE_SIZE, char, { ...FONT_STYLE, fill: color }).setOrigin(0);
+                this.tileTexts[y][x] = text;
             }
         }
     }
@@ -263,10 +402,12 @@ class OverworldScene extends Phaser.Scene {
         if (nx < 0 || nx >= WORLD_WIDTH || ny < 0 || ny >= WORLD_HEIGHT) return;
         if (this.biomeMap[ny][nx] === 3) return; // acqua
 
+        // Muovi player
         this.player.x = nx;
         this.player.y = ny;
-        this.player.sprite.setPosition(nx * TILE_SIZE, ny * TILE_SIZE);
+        this.playerText.setPosition(nx * TILE_SIZE, ny * TILE_SIZE);
 
+        // Controlla dungeon
         const entrance = this.dungeonEntrances.find(d => d.x === nx && d.y === ny);
         if (entrance) {
             this.scene.start('DungeonScene', {
@@ -278,6 +419,7 @@ class OverworldScene extends Phaser.Scene {
         }
         this.updateUI();
 
+        // Tasti S e C
         if (Phaser.Input.Keyboard.JustDown(this.input.keyboard.addKey('S'))) {
             this.scene.launch('SkillTreeScene', { player: this.player });
             this.scene.pause();
@@ -297,7 +439,6 @@ class OverworldScene extends Phaser.Scene {
         const save = {
             player: this.player,
             seed: this.seed,
-            overworldMap: this.map,
             biomeMap: this.biomeMap,
             dungeonEntrances: this.dungeonEntrances
         };
@@ -321,9 +462,8 @@ class DungeonScene extends Phaser.Scene {
         this.seed = 0;
         this.rng = null;
         this.entrance = null;
-        this.fogGroup = null;
-        this.entityGroup = null;
-        this.tileGroup = null;
+        this.tileTexts = []; // testi sfondo (pavimenti, muri, scale)
+        this.entityTexts = []; // testi entità (player, nemici, oggetti)
     }
     init(data) {
         this.seed = data.seed;
@@ -336,26 +476,23 @@ class DungeonScene extends Phaser.Scene {
         this.generateDungeon();
 
         this.fov = Array(DUNGEON_HEIGHT).fill().map(() => Array(DUNGEON_WIDTH).fill(0));
-        this.fogGroup = this.add.group();
-        this.entityGroup = this.add.group();
-        this.tileGroup = this.add.group();
+        this.tileTexts = Array(DUNGEON_HEIGHT).fill().map(() => Array(DUNGEON_WIDTH).fill(null));
+        this.entityTexts = []; // sarà un array di testi per entità
 
-        this.drawMap();
+        this.drawMap(); // disegna sfondo
 
         const startRoom = this.rooms[0];
         this.player.x = startRoom.center.x;
         this.player.y = startRoom.center.y;
-        this.player.sprite = this.add.sprite(this.player.x * TILE_SIZE, this.player.y * TILE_SIZE, 'player').setOrigin(0);
-        //this.player.sprite.anims.play('player_idle', true);
-        this.entityGroup.add(this.player.sprite);
+        this.playerText = this.add.text(this.player.x * TILE_SIZE, this.player.y * TILE_SIZE, this.player.char, { ...FONT_STYLE, fill: this.player.color }).setOrigin(0);
 
         this.spawnEntities();
 
         this.computeFOV();
         this.updateFog();
 
-        this.uiText = this.add.text(10, 10, '', { fontSize: '16px', fill: '#fff' });
-        this.messageText = this.add.text(10, 570, '', { fontSize: '12px', fill: '#ff0' });
+        this.uiText = this.add.text(10, 10, '', { fontSize: '16px', fill: '#fff', fontFamily: 'monospace' });
+        this.messageText = this.add.text(10, 570, '', { fontSize: '12px', fill: '#ff0', fontFamily: 'monospace' });
         this.updateUI();
 
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -404,16 +541,67 @@ class DungeonScene extends Phaser.Scene {
         }
     }
     drawMap() {
-        this.tileGroup.clear(true, true);
         for (let y = 0; y < DUNGEON_HEIGHT; y++) {
             for (let x = 0; x < DUNGEON_WIDTH; x++) {
-                let tex;
-                if (this.map[y][x] === 1) tex = 'wall';
-                else if (this.map[y][x] === 2) tex = 'stairs';
-                else tex = 'floor';
-                const sprite = this.add.sprite(x * TILE_SIZE, y * TILE_SIZE, tex).setOrigin(0);
-                this.tileGroup.add(sprite);
+                let char, color;
+                if (this.map[y][x] === 1) { char = '#'; color = '#8b4513'; } // muro marrone
+                else if (this.map[y][x] === 2) { char = '>'; color = '#00f'; } // scale blu
+                else { char = '.'; color = '#aaa'; } // pavimento grigio
+                const text = this.add.text(x * TILE_SIZE, y * TILE_SIZE, char, { ...FONT_STYLE, fill: color }).setOrigin(0);
+                this.tileTexts[y][x] = text;
             }
+        }
+    }
+    spawnEntities() {
+        // Nemici
+        for (let i = 0; i < 3 + this.depth; i++) {
+            const room = this.rng.choice(this.rooms.slice(1));
+            let x, y;
+            do {
+                x = this.rng.range(room.x, room.x + room.w - 1);
+                y = this.rng.range(room.y, room.y + room.h - 1);
+            } while (this.map[y][x] !== 0 || (x === this.player.x && y === this.player.y) || this.enemies.some(e => e.x === x && e.y === y));
+            const enemy = new Enemy('normal', x, y, this.depth, this.rng);
+            enemy.text = this.add.text(x * TILE_SIZE, y * TILE_SIZE, enemy.char, { ...FONT_STYLE, fill: enemy.color }).setOrigin(0);
+            this.enemies.push(enemy);
+            this.entityTexts.push(enemy.text);
+        }
+        // Boss
+        if (this.depth % 5 === 0) {
+            const bossRoom = this.rooms[this.rooms.length - 1];
+            const x = bossRoom.center.x, y = bossRoom.center.y;
+            const boss = new Enemy('boss', x, y, this.depth, this.rng);
+            boss.text = this.add.text(x * TILE_SIZE, y * TILE_SIZE, boss.char, { ...FONT_STYLE, fill: boss.color }).setOrigin(0);
+            this.enemies.push(boss);
+            this.entityTexts.push(boss.text);
+        }
+        // Oggetti e materiali
+        for (let i = 0; i < 2; i++) {
+            const room = this.rng.choice(this.rooms);
+            let x, y;
+            do {
+                x = this.rng.range(room.x, room.x + room.w - 1);
+                y = this.rng.range(room.y, room.y + room.h - 1);
+            } while (this.map[y][x] !== 0 || this.enemies.some(e => e.x === x && e.y === y) || this.items.some(it => it.x === x && it.y === y));
+            const isMaterial = this.rng.nextFloat() < 0.5;
+            const item = Item.random(this.rng, this.depth, isMaterial);
+            item.x = x; item.y = y;
+            // Assegna carattere in base al tipo
+            if (isMaterial) {
+                switch (item.type) {
+                    case 'bone': item.char = ';'; item.color = '#fff'; break;
+                    case 'leather': item.char = ';'; item.color = '#cd853f'; break;
+                    case 'cloth': item.char = ';'; item.color = '#f0e68c'; break;
+                    case 'iron_ore': item.char = ';'; item.color = '#a9a9a9'; break;
+                }
+            } else {
+                if (item.type === 'potion') { item.char = '!'; item.color = '#f0f'; }
+                else if (item.type === 'weapon') { item.char = '/'; item.color = '#ff0'; }
+                else { item.char = ']'; item.color = '#0ff'; }
+            }
+            item.text = this.add.text(x * TILE_SIZE, y * TILE_SIZE, item.char, { ...FONT_STYLE, fill: item.color }).setOrigin(0);
+            this.items.push(item);
+            this.entityTexts.push(item.text);
         }
     }
     computeFOV() {
@@ -451,62 +639,32 @@ class DungeonScene extends Phaser.Scene {
         }
     }
     updateFog() {
-        this.fogGroup.clear(true, true);
+        // Imposta alpha/colore in base a fov
         for (let y = 0; y < DUNGEON_HEIGHT; y++) {
             for (let x = 0; x < DUNGEON_WIDTH; x++) {
-                if (this.fov[y][x] === 0) {
-                    const f = this.add.sprite(x * TILE_SIZE, y * TILE_SIZE, 'fog').setOrigin(0).setAlpha(1);
-                    this.fogGroup.add(f);
+                const tile = this.tileTexts[y][x];
+                if (this.fov[y][x] === 2) {
+                    tile.setAlpha(1);
+                    tile.setColor(tile.style.color); // ripristina colore originale
                 } else if (this.fov[y][x] === 1) {
-                    const f = this.add.sprite(x * TILE_SIZE, y * TILE_SIZE, 'fog').setOrigin(0).setAlpha(0.7);
-                    this.fogGroup.add(f);
+                    tile.setAlpha(0.5);
+                } else {
+                    tile.setAlpha(0.2);
                 }
             }
         }
-    }
-    spawnEntities() {
-        for (let i = 0; i < 3 + this.depth; i++) {
-            const room = this.rng.choice(this.rooms.slice(1));
-            let x, y;
-            do {
-                x = this.rng.range(room.x, room.x + room.w - 1);
-                y = this.rng.range(room.y, room.y + room.h - 1);
-            } while (this.map[y][x] !== 0 || (x === this.player.x && y === this.player.y) || this.enemies.some(e => e.x === x && e.y === y));
-            const enemyType = this.rng.choice(['goblin', 'ogre']);
-            const enemy = new Enemy('normal', x, y, this.depth, this.rng);
-            enemy.sprite = this.add.sprite(x * TILE_SIZE, y * TILE_SIZE, enemyType === 'goblin' ? 'enemy_goblin' : 'enemy_ogre').setOrigin(0);
-            enemy.sprite.anims.play(enemyType + '_idle', true);
-            this.enemies.push(enemy);
-            this.entityGroup.add(enemy.sprite);
-        }
-        if (this.depth % 5 === 0) {
-            const bossRoom = this.rooms[this.rooms.length - 1];
-            const x = bossRoom.center.x, y = bossRoom.center.y;
-            const boss = new Enemy('boss', x, y, this.depth, this.rng);
-            boss.sprite = this.add.sprite(x * TILE_SIZE, y * TILE_SIZE, 'boss').setOrigin(0);
-            boss.sprite.anims.play('boss_idle', true);
-            this.enemies.push(boss);
-            this.entityGroup.add(boss.sprite);
-        }
-        for (let i = 0; i < 2; i++) {
-            const room = this.rng.choice(this.rooms);
-            let x, y;
-            do {
-                x = this.rng.range(room.x, room.x + room.w - 1);
-                y = this.rng.range(room.y, room.y + room.h - 1);
-            } while (this.map[y][x] !== 0 || this.enemies.some(e => e.x === x && e.y === y) || this.items.some(it => it.x === x && it.y === y));
-            const isMaterial = this.rng.nextFloat() < 0.5;
-            const item = Item.random(this.rng, this.depth, isMaterial);
-            let tex;
-            if (isMaterial) tex = item.type;
-            else if (item.type === 'potion') tex = 'potion';
-            else if (item.type === 'weapon') tex = 'weapon';
-            else tex = 'armor';
-            item.sprite = this.add.sprite(x * TILE_SIZE, y * TILE_SIZE, tex).setOrigin(0);
-            item.x = x; item.y = y;
-            this.items.push(item);
-            this.entityGroup.add(item.sprite);
-        }
+        // Entità visibili solo se la cella è visibile (fov=2)
+        this.entityTexts.forEach(text => {
+            const x = Math.floor(text.x / TILE_SIZE);
+            const y = Math.floor(text.y / TILE_SIZE);
+            if (this.fov[y][x] === 2) {
+                text.setAlpha(1);
+            } else {
+                text.setAlpha(0);
+            }
+        });
+        // Player sempre visibile
+        this.playerText.setAlpha(1);
     }
     playerAttack(enemy) {
         const dmg = this.player.attackRoll();
@@ -514,24 +672,34 @@ class DungeonScene extends Phaser.Scene {
         enemy.takeDamage(dmg);
         this.showMessage(`${crit}Inflitti ${dmg} danni a ${enemy.type}`);
         if (enemy.hp <= 0) {
-            enemy.sprite.destroy();
+            enemy.text.destroy();
             this.enemies = this.enemies.filter(e => e !== enemy);
+            this.entityTexts = this.entityTexts.filter(t => t !== enemy.text);
             this.player.skillPoints += 1;
             const numMaterials = this.rng.range(1, 2);
             for (let i = 0; i < numMaterials; i++) {
                 const material = Item.random(this.rng, this.depth, true);
                 material.x = enemy.x; material.y = enemy.y;
-                material.sprite = this.add.sprite(material.x * TILE_SIZE, material.y * TILE_SIZE, material.type).setOrigin(0);
+                // assegna carattere
+                switch (material.type) {
+                    case 'bone': material.char = ';'; material.color = '#fff'; break;
+                    case 'leather': material.char = ';'; material.color = '#cd853f'; break;
+                    case 'cloth': material.char = ';'; material.color = '#f0e68c'; break;
+                    case 'iron_ore': material.char = ';'; material.color = '#a9a9a9'; break;
+                }
+                material.text = this.add.text(material.x * TILE_SIZE, material.y * TILE_SIZE, material.char, { ...FONT_STYLE, fill: material.color }).setOrigin(0);
                 this.items.push(material);
-                this.entityGroup.add(material.sprite);
+                this.entityTexts.push(material.text);
             }
             if (this.rng.nextFloat() < 0.1) {
                 const loot = Item.random(this.rng, this.depth, false);
                 loot.x = enemy.x; loot.y = enemy.y;
-                loot.sprite = this.add.sprite(loot.x * TILE_SIZE, loot.y * TILE_SIZE,
-                    loot.type === 'potion' ? 'potion' : (loot.type === 'weapon' ? 'weapon' : 'armor')).setOrigin(0);
+                if (loot.type === 'potion') { loot.char = '!'; loot.color = '#f0f'; }
+                else if (loot.type === 'weapon') { loot.char = '/'; loot.color = '#ff0'; }
+                else { loot.char = ']'; loot.color = '#0ff'; }
+                loot.text = this.add.text(loot.x * TILE_SIZE, loot.y * TILE_SIZE, loot.char, { ...FONT_STYLE, fill: loot.color }).setOrigin(0);
                 this.items.push(loot);
-                this.entityGroup.add(loot.sprite);
+                this.entityTexts.push(loot.text);
             }
         } else {
             const enemyDmg = enemy.attackRoll();
@@ -567,7 +735,7 @@ class DungeonScene extends Phaser.Scene {
                     } else {
                         enemy.x = next.x;
                         enemy.y = next.y;
-                        enemy.sprite.setPosition(enemy.x * TILE_SIZE, enemy.y * TILE_SIZE);
+                        enemy.text.setPosition(enemy.x * TILE_SIZE, enemy.y * TILE_SIZE);
                     }
                 }
             } else {
@@ -578,7 +746,7 @@ class DungeonScene extends Phaser.Scene {
                     if (this.map[ny][nx] === 0 && !this.enemies.some(e => e.x === nx && e.y === ny) && !(this.player.x === nx && this.player.y === ny)) {
                         enemy.x = nx;
                         enemy.y = ny;
-                        enemy.sprite.setPosition(nx * TILE_SIZE, ny * TILE_SIZE);
+                        enemy.text.setPosition(nx * TILE_SIZE, ny * TILE_SIZE);
                         break;
                     }
                 }
@@ -620,7 +788,8 @@ class DungeonScene extends Phaser.Scene {
                 this.showMessage(`Hai equipaggiato: ${item.type} (rarità ${item.rarity})`);
             }
             this.items = this.items.filter(it => it !== item);
-            item.sprite.destroy();
+            item.text.destroy();
+            this.entityTexts = this.entityTexts.filter(t => t !== item.text);
         }
 
         const evt = this.events.find(e => e.x === newX && e.y === newY);
@@ -631,7 +800,7 @@ class DungeonScene extends Phaser.Scene {
 
         this.player.x = newX;
         this.player.y = newY;
-        this.player.sprite.setPosition(newX * TILE_SIZE, newY * TILE_SIZE);
+        this.playerText.setPosition(newX * TILE_SIZE, newY * TILE_SIZE);
 
         if (this.map[newY][newX] === 2) {
             this.depth++;
@@ -668,9 +837,15 @@ class DungeonScene extends Phaser.Scene {
                     for (let i = 0; i < 5; i++) {
                         const mat = Item.random(this.rng, this.depth, true);
                         mat.x = this.player.x; mat.y = this.player.y;
-                        mat.sprite = this.add.sprite(mat.x * TILE_SIZE, mat.y * TILE_SIZE, mat.type).setOrigin(0);
+                        switch (mat.type) {
+                            case 'bone': mat.char = ';'; mat.color = '#fff'; break;
+                            case 'leather': mat.char = ';'; mat.color = '#cd853f'; break;
+                            case 'cloth': mat.char = ';'; mat.color = '#f0e68c'; break;
+                            case 'iron_ore': mat.char = ';'; mat.color = '#a9a9a9'; break;
+                        }
+                        mat.text = this.add.text(mat.x * TILE_SIZE, mat.y * TILE_SIZE, mat.char, { ...FONT_STYLE, fill: mat.color }).setOrigin(0);
                         this.items.push(mat);
-                        this.entityGroup.add(mat.sprite);
+                        this.entityTexts.push(mat.text);
                     }
                 }
                 break;
@@ -682,10 +857,9 @@ class DungeonScene extends Phaser.Scene {
                 const nx = x + dx, ny = y + dy;
                 if (this.map[ny][nx] === 0 && !this.enemies.some(e => e.x === nx && e.y === ny) && !(this.player.x === nx && this.player.y === ny)) {
                     const enemy = new Enemy('normal', nx, ny, this.depth, this.rng);
-                    enemy.sprite = this.add.sprite(nx * TILE_SIZE, ny * TILE_SIZE, 'enemy_goblin').setOrigin(0);
-                    enemy.sprite.anims.play('goblin_idle', true);
+                    enemy.text = this.add.text(nx * TILE_SIZE, ny * TILE_SIZE, enemy.char, { ...FONT_STYLE, fill: enemy.color }).setOrigin(0);
                     this.enemies.push(enemy);
-                    this.entityGroup.add(enemy.sprite);
+                    this.entityTexts.push(enemy.text);
                     return;
                 }
             }
@@ -719,7 +893,7 @@ class SkillTreeScene extends Phaser.Scene {
         this.player = data.player;
     }
     create() {
-        this.add.text(200, 50, 'ALBERO DELLE ABILITÀ', { fontSize: '24px', fill: '#fff' });
+        this.add.text(200, 50, 'ALBERO DELLE ABILITÀ', { fontSize: '24px', fill: '#fff', fontFamily: 'monospace' });
         let y = 100;
         const skills = [
             new Skill('Forza +1', 'Aumenta attacco di 1', 5, (p, lvl) => p.attack += lvl),
@@ -729,8 +903,8 @@ class SkillTreeScene extends Phaser.Scene {
         ];
         this.player.skills = skills;
         for (let skill of skills) {
-            this.add.text(50, y, `${skill.name} (liv.${skill.level}/${skill.maxLevel}) - ${skill.description}`, { fill: '#fff' });
-            const plusBtn = this.add.text(400, y, '[+]', { fill: '#0f0' }).setInteractive();
+            this.add.text(50, y, `${skill.name} (liv.${skill.level}/${skill.maxLevel}) - ${skill.description}`, { fill: '#fff', fontFamily: 'monospace' });
+            const plusBtn = this.add.text(400, y, '[+]', { fill: '#0f0', fontFamily: 'monospace' }).setInteractive();
             plusBtn.on('pointerdown', () => {
                 if (this.player.skillPoints > 0 && skill.level < skill.maxLevel) {
                     skill.level++;
@@ -741,8 +915,8 @@ class SkillTreeScene extends Phaser.Scene {
             });
             y += 30;
         }
-        this.add.text(50, y + 20, `Punti disponibili: ${this.player.skillPoints}`, { fill: '#ff0' });
-        this.add.text(50, y + 50, 'Premi ESC per tornare', { fill: '#aaa' });
+        this.add.text(50, y + 20, `Punti disponibili: ${this.player.skillPoints}`, { fill: '#ff0', fontFamily: 'monospace' });
+        this.add.text(50, y + 50, 'Premi ESC per tornare', { fill: '#aaa', fontFamily: 'monospace' });
         this.input.keyboard.once('keydown-ESC', () => {
             this.scene.stop();
             this.scene.resume('OverworldScene');
@@ -763,14 +937,14 @@ class CraftingScene extends Phaser.Scene {
         ];
     }
     create() {
-        this.add.text(200, 20, 'CRAFTING', { fontSize: '24px', fill: '#fff' });
-        this.add.text(50, 50, `Materiali: ${this.player.materials.length} pezzi`, { fill: '#ff0' });
+        this.add.text(200, 20, 'CRAFTING', { fontSize: '24px', fill: '#fff', fontFamily: 'monospace' });
+        this.add.text(50, 50, `Materiali: ${this.player.materials.length} pezzi`, { fill: '#ff0', fontFamily: 'monospace' });
 
         let y = 80;
         this.recipes.forEach((recipe, index) => {
             const color = recipe.canCraft(this.player) ? '#0f0' : '#f00';
-            this.add.text(50, y, `${recipe.name} (richiede: ${recipe.materials.map(m => m.type + 'x' + m.qty).join(', ')})`, { fill: color });
-            const craftBtn = this.add.text(400, y, '[CRAFT]', { fill: '#0ff' }).setInteractive();
+            this.add.text(50, y, `${recipe.name} (richiede: ${recipe.materials.map(m => m.type + 'x' + m.qty).join(', ')})`, { fill: color, fontFamily: 'monospace' });
+            const craftBtn = this.add.text(400, y, '[CRAFT]', { fill: '#0ff', fontFamily: 'monospace' }).setInteractive();
             craftBtn.on('pointerdown', () => {
                 if (recipe.canCraft(this.player)) {
                     const item = recipe.craft(this.player);
@@ -783,7 +957,7 @@ class CraftingScene extends Phaser.Scene {
             y += 30;
         });
 
-        this.add.text(50, y + 20, 'Premi ESC per tornare', { fill: '#aaa' });
+        this.add.text(50, y + 20, 'Premi ESC per tornare', { fill: '#aaa', fontFamily: 'monospace' });
         this.input.keyboard.once('keydown-ESC', () => {
             this.scene.stop();
             this.scene.resume('OverworldScene');
@@ -792,18 +966,20 @@ class CraftingScene extends Phaser.Scene {
         });
     }
     showMessage(msg) {
-        const text = this.add.text(200, 500, msg, { fill: '#ff0' });
+        const text = this.add.text(200, 500, msg, { fill: '#ff0', fontFamily: 'monospace' });
         this.time.delayedCall(1500, () => text.destroy());
     }
 }
 
+// Configurazione di gioco
 const config = {
     type: Phaser.AUTO,
     parent: 'game-container',
     width: 800,
     height: 600,
-    pixelArt: true,
-    scene: [BootScene, OverworldScene, DungeonScene, SkillTreeScene, CraftingScene]
+    pixelArt: true, // utile per mantenere i caratteri nitidi
+    scene: [BootScene, OverworldScene, DungeonScene, SkillTreeScene, CraftingScene],
+    physics: { default: false }
 };
 
 new Phaser.Game(config);

@@ -149,10 +149,10 @@ class BootScene extends Phaser.Scene {
     }
     create() {
         // animazioni (identiche alle tue)
-        this.anims.create({key:'player_idle', frames:this.anims.generateFrameNumbers('player',{start:0,end:1}), frameRate:2, repeat:-1});
-        this.anims.create({key:'goblin_idle', frames:this.anims.generateFrameNumbers('enemy_goblin',{start:0,end:1}), frameRate:2, repeat:-1});
-        this.anims.create({key:'ogre_idle', frames:this.anims.generateFrameNumbers('enemy_ogre',{start:0,end:1}), frameRate:2, repeat:-1});
-        this.anims.create({key:'boss_idle', frames:this.anims.generateFrameNumbers('boss',{start:0,end:1}), frameRate:2, repeat:-1});
+      //  this.anims.create({key:'player_idle', frames:this.anims.generateFrameNumbers('player',{start:0,end:1}), frameRate:2, repeat:-1});
+       // this.anims.create({key:'goblin_idle', frames:this.anims.generateFrameNumbers('enemy_goblin',{start:0,end:1}), frameRate:2, repeat:-1});
+        //this.anims.create({key:'ogre_idle', frames:this.anims.generateFrameNumbers('enemy_ogre',{start:0,end:1}), frameRate:2, repeat:-1});
+        //this.anims.create({key:'boss_idle', frames:this.anims.generateFrameNumbers('boss',{start:0,end:1}), frameRate:2, repeat:-1});
 
         localforage.getItem('save').then(save => this.scene.start('OverworldScene', {loadSave: !!save, save}));
     }

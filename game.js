@@ -2336,6 +2336,8 @@ class DungeonScene extends Phaser.Scene {
 
     // Build HUD
     this._buildHUD(W, H);
+    // Populate HUD values immediately (not just after first player action)
+    this._updateHUD();
 
     // Build message log
     this._buildMessageLog(W, H);
@@ -2439,13 +2441,15 @@ class DungeonScene extends Phaser.Scene {
       p.add(C.render('player', 0xffffff, 30));
     }
     const render = p.get('render');
-    if (!render.sprite) {
-      render.sprite = this.add.image(pos.x*TS+TS/2, pos.y*TS+TS/2, 'player').setScale(SCALE).setDepth(30);
-      this.entityContainer.add(render.sprite);
-    } else {
-      render.sprite.setPosition(pos.x*TS+TS/2, pos.y*TS+TS/2);
-      this.entityContainer.add(render.sprite);
-    }
+
+    // ALWAYS create a fresh Phaser sprite — the previous one was destroyed
+    // when the scene shut down (restart or start from WorldMap).
+    render.sprite = this.add.image(
+      pos.x * TS + TS / 2,
+      pos.y * TS + TS / 2,
+      'player'
+    ).setScale(SCALE).setDepth(30);
+    this.entityContainer.add(render.sprite);
 
     // Camera follow player
     this.cameras.main.startFollow(render.sprite, true, 0.1, 0.1);
@@ -2531,11 +2535,11 @@ class DungeonScene extends Phaser.Scene {
   }
 
   _buildHUD(W, H) {
-    // Bottom panel
+    // Bottom panel — NOT in uiContainer so it stays at depth 90, below bars (91-92)
     const panelH = 80;
-    const panel = this.add.rectangle(W/2, H - panelH/2, W, panelH, 0x0a0a1a, 0.95).setScrollFactor(0).setDepth(90);
+    const panel = this.add.rectangle(W/2, H - panelH/2, W, panelH, 0x0a0a1a, 0.97)
+      .setScrollFactor(0).setDepth(90);
     panel.setStrokeStyle(1, 0x333355);
-    this.uiContainer.add(panel);
 
     // HP/MP bars
     const p = GameState.player;
@@ -2552,21 +2556,22 @@ class DungeonScene extends Phaser.Scene {
     this.add.text(10, H-panelH+34, 'MP', { fontFamily:'"Press Start 2P"', fontSize:'7px', color:'#4488ff' }).setScrollFactor(0).setDepth(91);
     this.mpBarBg = this.add.rectangle(10, H-panelH+48, 140, 10, 0x000044).setOrigin(0,0.5).setScrollFactor(0).setDepth(91);
     this.mpBar   = this.add.rectangle(10, H-panelH+48, 140, 10, 0x4488ff).setOrigin(0,0.5).setScrollFactor(0).setDepth(92);
-    this.mpText  = this.add.text(155, H-panelH+43, '', { fontFamily:'"VT323"', fontSize:'14px', color:'#4488ff' }).setScrollFactor(0).setDepth(91);
+    this.mpText  = this.add.text(155, H-panelH+43, '', { fontFamily:'"VT323"', fontSize:'14px', color:'#4488ff' }).setScrollFactor(0).setDepth(93);
 
-    // XP bar
-    this.xpBar = this.add.rectangle(10, H-panelH+64, 140, 5, 0x88ff44).setOrigin(0,0.5).setScrollFactor(0).setDepth(92);
+    // XP bar — bg first so bar renders on top
     this.xpBarBg = this.add.rectangle(10, H-panelH+64, 140, 5, 0x224400).setOrigin(0,0.5).setScrollFactor(0).setDepth(91);
+    this.xpBar   = this.add.rectangle(10, H-panelH+64, 140, 5, 0x88ff44).setOrigin(0,0.5).setScrollFactor(0).setDepth(92);
+    this.xpText  = this.add.text(155, H-panelH+60, '', { fontFamily:'"VT323"', fontSize:'12px', color:'#88ff44' }).setScrollFactor(0).setDepth(93);
 
-    // Stats
-    this.statsText = this.add.text(230, H-panelH+8, '', {
-      fontFamily:'"VT323"', fontSize:'15px', color:'#ccccee', lineSpacing:3,
-    }).setScrollFactor(0).setDepth(91);
+    // Stats block (ATK/DEF/MAG/LVL/Gold)
+    this.statsText = this.add.text(230, H-panelH+6, '', {
+      fontFamily:'"VT323"', fontSize:'14px', color:'#ccccee', lineSpacing:2,
+    }).setScrollFactor(0).setDepth(93);
 
-    // Floor/Turn info
-    this.floorText = this.add.text(W/2, H-panelH+8, '', {
-      fontFamily:'"Press Start 2P"', fontSize:'8px', color:'#ffd700',
-    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(91);
+    // Floor number + turn counter (centre of HUD)
+    this.floorText = this.add.text(W/2, H-panelH+6, '', {
+      fontFamily:'"Press Start 2P"', fontSize:'7px', color:'#ffd700',
+    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(93);
 
     // Status effects display
     this.statusIcons = [];
@@ -3197,6 +3202,16 @@ class DungeonScene extends Phaser.Scene {
       if (GameState.floor <= 1) {
         GameState.addMessage('Returning to world map...', '#88ff88');
         GameState.inDungeon = false;
+        // Null all Phaser refs so DungeonScene.create() rebuilds them clean on next entry
+        const pr = GameState.player?.get('render');
+        if (pr) { pr.sprite = null; pr.hpBg = null; pr.hpBar = null; }
+        const monsters = GameState.world?.queryTag('monster') || [];
+        for (const m of monsters) {
+          const r = m.get('render');
+          if (r) { r.sprite = null; r.hpBg = null; r.hpBar = null; }
+          GameState.world.destroy(m.id);
+        }
+        if (GameState.floorData) GameState.floorData.monsters = [];
         this.scene.start('WorldMap');
         return;
       }
@@ -3708,28 +3723,34 @@ class DungeonScene extends Phaser.Scene {
       const ratio = hp.hp / hp.maxHp;
       this.hpBar.setScale(ratio, 1);
       this.hpBar.setFillStyle(ratio > 0.5 ? 0xff4444 : ratio > 0.25 ? 0xff8800 : 0xff0000);
-      this.hpText.setText(`${hp.hp}/${hp.maxHp}`);
-      if (hp.shield > 0) this.hpText.setText(`${hp.hp}/${hp.maxHp} 🛡${hp.shield}`);
+      this.hpText.setText(`${hp.hp}/${hp.maxHp}${hp.shield > 0 ? ' 🛡'+hp.shield : ''}`);
     }
 
     if (st) {
       const mp = st.mp || 0;
       const maxMp = st.maxMp || 30;
-      const mpRatio = mp / maxMp;
-      this.mpBar.setScale(mpRatio, 1);
+      const mpRatio = maxMp > 0 ? mp / maxMp : 0;
+      this.mpBar.setScale(Math.max(0, mpRatio), 1);
       this.mpText.setText(`${mp}/${maxMp}`);
+
+      const wAtk = equip?.weapon?.atk || 0;
+      const aDef = equip?.armor?.def  || 0;
+      const rMag = equip?.ring?.mag   || 0;
       this.statsText.setText(
-        `ATK:${st.atk+(equip?.weapon?.atk||0)} DEF:${st.def+(equip?.armor?.def||0)} ` +
-        `MAG:${st.mag+(equip?.ring?.mag||0)} LVL:${st.level}\n` +
-        `XP:${st.xp}/${st.xpNext}  Gold:${inv?.gold||0}💰  T:${GameState.turnCount}`
+        `⚔${st.atk + wAtk}  🛡${st.def + aDef}  🔮${st.mag + rMag}  💰${inv?.gold||0}\n` +
+        `LVL ${st.level}  T:${GameState.turnCount}  ATK+${wAtk} DEF+${aDef}`
       );
 
-      const xpRatio = st.xp / st.xpNext;
-      this.xpBar.setScale(xpRatio, 1);
+      const xpRatio = st.xpNext > 0 ? st.xp / st.xpNext : 0;
+      this.xpBar.setScale(Math.max(0, Math.min(1, xpRatio)), 1);
+      if (this.xpText) this.xpText.setText(`XP ${st.xp}/${st.xpNext}`);
     }
 
-    // Floor info
-    this.floorText.setText(`FLOOR ${GameState.floor}/${MAX_FLOORS} | ${BIOME_NAME[0]} Dungeon`);
+    // Floor number — prominent centre
+    this.floorText.setText(
+      `FLOOR ${GameState.floor} / ${MAX_FLOORS}\n` +
+      `${GameState.currentDungeon?.name || 'Dungeon'}`
+    );
 
     // Status effects
     if (status) {

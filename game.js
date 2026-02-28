@@ -2124,7 +2124,7 @@ class WorldMapScene extends Phaser.Scene {
       fontFamily:'"Press Start 2P"', fontSize:'7px', color:'#ccccee',
       backgroundColor:'#1a1a3a', padding:{x:6,y:4},
     }).setOrigin(1,0).setScrollFactor(0).setDepth(51).setInteractive({ useHandCursor:true });
-    dungBtn.on('pointerdown', () => this.scene.start('Inventory'));
+    dungBtn.on('pointerdown', () => { InventoryScene._page='inventory'; this.scene.launch('Inventory'); });
 
     this._updateHUD();
   }
@@ -2185,62 +2185,105 @@ class WorldMapScene extends Phaser.Scene {
     const st = p.get('stats');
     const inv = p.get('inventory');
 
-    // Heal to full
-    if (hp) { const healed = hp.maxHp - hp.hp; hp.hp = hp.maxHp; if (healed>0) GameState.addMessage(`Rested at ${town.name}. Healed ${healed} HP!`, '#00ff88'); }
-    if (st && st.mp < st.maxMp) { st.mp = st.maxMp; }
+    // Heal to full on rest
+    if (hp) {
+      const healed = hp.maxHp - hp.hp;
+      hp.hp = hp.maxHp;
+      if (healed > 0) GameState.addMessage(`Rested at ${town.name}. Healed ${healed} HP!`, '#00ff88');
+    }
+    if (st && st.mp !== undefined) st.mp = st.maxMp || 30;
 
-    const panel = this.add.container(W/2, H/2).setScrollFactor(0).setDepth(100);
-    const bg = this.add.rectangle(0,0, 500, 380, 0x0a0a1a, 0.97).setStrokeStyle(2,0x4444aa);
-    const title = this.add.text(0, -160, `🏠 ${town.name}`, {
-      fontFamily:'"Press Start 2P"', fontSize:'14px', color:'#ffd700'
-    }).setOrigin(0.5);
+    // Build flat list of display objects so we can destroy them all on close
+    const elements = [];
+    const add = obj => { elements.push(obj); return obj; };
+    const depth = 200;
+    const sf = 0; // scrollFactor
 
+    const PW = Math.min(520, W - 40), PH = Math.min(400, H - 40);
+    const ox = W/2, oy = H/2;
+
+    // Block pointer events behind panel
+    const blocker = add(this.add.rectangle(ox, oy, W, H, 0x000000, 0.6)
+      .setScrollFactor(sf).setDepth(depth - 1).setInteractive());
+
+    add(this.add.rectangle(ox, oy, PW, PH, 0x0a0a1a, 0.98)
+      .setStrokeStyle(2, 0x4444aa).setScrollFactor(sf).setDepth(depth));
+
+    add(this.add.text(ox, oy - PH/2 + 20, `🏠  ${town.name}`, {
+      fontFamily:'"Press Start 2P"', fontSize:'12px', color:'#ffd700'
+    }).setOrigin(0.5, 0).setScrollFactor(sf).setDepth(depth));
+
+    add(this.add.text(ox, oy - PH/2 + 44, 'Fully rested. Shop below:', {
+      fontFamily:'"VT323"', fontSize:'15px', color:'#88ff88'
+    }).setOrigin(0.5, 0).setScrollFactor(sf).setDepth(depth));
+
+    // Shop items grid (2 cols × 3 rows)
     const shopItems = [
-      { ...ITEMS.potion_hp_s, count:1, identified:true },
-      { ...ITEMS.potion_hp_m, count:1, identified:true },
-      { ...ITEMS.antidote, count:1, identified:true },
-      { ...ITEMS.short_sword, count:1, identified:true },
+      { ...ITEMS.potion_hp_s,   count:1, identified:true },
+      { ...ITEMS.potion_hp_m,   count:1, identified:true },
+      { ...ITEMS.antidote,      count:1, identified:true },
+      { ...ITEMS.short_sword,   count:1, identified:true },
       { ...ITEMS.leather_armor, count:1, identified:true },
-      { ...ITEMS.scroll_tp, count:1, identified:true },
+      { ...ITEMS.scroll_tp,     count:1, identified:true },
     ];
 
-    const shopLabel = this.add.text(-220, -110, 'SHOP:', { fontFamily:'"Press Start 2P"', fontSize:'9px', color:'#88ff88' });
-    panel.add([bg, title, shopLabel]);
+    const cellW = 220, cellH = 52;
+    const gridLeft = ox - cellW - 4;
+    const gridTop  = oy - PH/2 + 72;
 
-    shopItems.forEach((item,i) => {
-      const row = i % 3, col = Math.floor(i/3);
-      const bx = -180 + col*230, by = -80 + row*55;
-      const btn = this.add.rectangle(bx, by, 200, 42, 0x1a1a3a).setStrokeStyle(1,0x334466).setInteractive({useHandCursor:true});
-      const lbl = this.add.text(bx, by-8, `${item.icon} ${item.name}`, { fontFamily:'"VT323"', fontSize:'15px', color:['#aaa','#44ff88','#4488ff','#aa44ff','#ffd700'][item.rarity] }).setOrigin(0.5);
-      const prc = this.add.text(bx, by+8, `${item.price}💰`, { fontFamily:'"VT323"', fontSize:'13px', color:'#ffd700' }).setOrigin(0.5);
-      btn.on('pointerdown', () => {
-        if (inv.gold >= item.price) {
-          if (inv.items.length < inv.maxSize) {
-            inv.gold -= item.price;
-            inv.items.push({ ...item });
-            GameState.addMessage(`Bought ${item.name}!`, '#00ff88');
-            this._updateHUD();
-          } else window.showToast('Inventory full!', 'warning');
-        } else window.showToast('Not enough gold!', 'warning');
-      });
+    shopItems.forEach((item, i) => {
+      const col = i % 2, row = Math.floor(i / 2);
+      const cx = gridLeft + col * (cellW + 8);
+      const cy = gridTop  + row * (cellH + 6);
+
+      const btn = add(this.add.rectangle(cx + cellW/2, cy + cellH/2, cellW, cellH, 0x1a1a3a)
+        .setStrokeStyle(1, 0x334466).setScrollFactor(sf).setDepth(depth)
+        .setInteractive({ useHandCursor:true }));
+
+      add(this.add.text(cx + 6, cy + 6, `${item.icon||'•'} ${item.name}`, {
+        fontFamily:'"VT323"', fontSize:'15px',
+        color:'#'+RARITY_COLOR[item.rarity].toString(16).padStart(6,'0'),
+      }).setScrollFactor(sf).setDepth(depth + 1));
+
+      add(this.add.text(cx + 6, cy + 26, `${item.price}💰`, {
+        fontFamily:'"VT323"', fontSize:'13px', color:'#ffd700',
+      }).setScrollFactor(sf).setDepth(depth + 1));
+
       btn.on('pointerover', () => btn.setFillStyle(0x2a2a5a));
-      btn.on('pointerout', () => btn.setFillStyle(0x1a1a3a));
-      panel.add([btn,lbl,prc]);
+      btn.on('pointerout',  () => btn.setFillStyle(0x1a1a3a));
+      btn.on('pointerdown', () => {
+        if (inv.gold < item.price) { window.showToast('Not enough gold!','warning'); return; }
+        if (inv.items.length >= inv.maxSize) { window.showToast('Inventory full!','warning'); return; }
+        inv.gold -= item.price;
+        inv.items.push({ ...item });
+        GameState.addMessage(`Bought ${item.name}!`, '#00ff88');
+        goldText.setText(`💰 ${inv.gold}g`);
+        this._updateHUD();
+      });
     });
 
-    const goldLbl = this.add.text(-220, 95, '', { fontFamily:'"Press Start 2P"', fontSize:'8px', color:'#ffd700' });
-    const updateGold = () => goldLbl.setText(`GOLD: ${inv.gold}`);
-    updateGold();
-    panel.add(goldLbl);
+    const goldText = add(this.add.text(ox, oy + PH/2 - 80, `💰 ${inv.gold}g`, {
+      fontFamily:'"Press Start 2P"', fontSize:'9px', color:'#ffd700',
+    }).setOrigin(0.5).setScrollFactor(sf).setDepth(depth));
 
-    const closeBtn = this.add.text(0, 155, '[ LEAVE TOWN ]', {
+    // Close button
+    const closeAll = () => elements.forEach(e => e.destroy());
+    const closeRect = add(this.add.rectangle(ox, oy + PH/2 - 30, 180, 38, 0x1a1a3a)
+      .setStrokeStyle(1, 0xff6b35).setScrollFactor(sf).setDepth(depth)
+      .setInteractive({ useHandCursor:true }));
+    const closeTxt = add(this.add.text(ox, oy + PH/2 - 30, '[ LEAVE TOWN ]', {
       fontFamily:'"Press Start 2P"', fontSize:'9px', color:'#ff6b35',
-      backgroundColor:'#1a1a3a', padding:{x:10,y:5}
-    }).setOrigin(0.5).setInteractive({ useHandCursor:true });
-    closeBtn.on('pointerdown', () => panel.destroy());
-    panel.add(closeBtn);
+    }).setOrigin(0.5).setScrollFactor(sf).setDepth(depth + 1));
 
-    this.add.existing(panel);
+    closeRect.on('pointerover', () => closeRect.setFillStyle(0x2a1a1a));
+    closeRect.on('pointerout',  () => closeRect.setFillStyle(0x1a1a3a));
+    closeRect.on('pointerdown', closeAll);
+    closeTxt.setInteractive({ useHandCursor:true }).on('pointerdown', closeAll);
+    blocker.on('pointerdown', closeAll); // click outside also closes
+
+    // ESC key closes
+    const escHandler = () => closeAll();
+    this.input.keyboard.once('keydown-ESC', escHandler);
   }
 
   update() {
@@ -2296,6 +2339,9 @@ class DungeonScene extends Phaser.Scene {
 
     // Build message log
     this._buildMessageLog(W, H);
+
+    // Minimap
+    this._buildMinimap(W, H);
 
     // Input
     this._setupInput();
@@ -2565,13 +2611,13 @@ class DungeonScene extends Phaser.Scene {
       fontFamily:'"Press Start 2P"', fontSize:'9px', color:'#ccccee',
       backgroundColor:'#1a1a3a', padding:{x:5,y:3},
     }).setOrigin(1,0).setScrollFactor(0).setDepth(91).setInteractive({useHandCursor:true});
-    invBtn.on('pointerdown', () => this.scene.start('Inventory'));
+    invBtn.on('pointerdown', () => { InventoryScene._page='inventory'; this.scene.launch('Inventory'); });
 
-    const skillBtn = this.add.text(W-10, H-panelH+30, '[S]', {
+    const skillBtn = this.add.text(W-10, H-panelH+30, '[T]', {
       fontFamily:'"Press Start 2P"', fontSize:'9px', color:'#88ff88',
       backgroundColor:'#1a1a3a', padding:{x:5,y:3},
     }).setOrigin(1,0).setScrollFactor(0).setDepth(91).setInteractive({useHandCursor:true});
-    skillBtn.on('pointerdown', () => this.scene.start('SkillTree'));
+    skillBtn.on('pointerdown', () => this.scene.launch('SkillTree'));
 
     const mapBtn = this.add.text(W-10, H-panelH+50, '[M]', {
       fontFamily:'"Press Start 2P"', fontSize:'9px', color:'#ffd700',
@@ -2599,6 +2645,125 @@ class DungeonScene extends Phaser.Scene {
       this.msgLines.push(line);
       this.msgLogContainer.add(line);
     }
+  }
+
+  // ─────────────────────────────────────────
+  // MINIMAP
+  // ─────────────────────────────────────────
+  _buildMinimap(W, H) {
+    const MM_COLS = COLS;
+    const MM_ROWS = ROWS;
+    const CELL = 3;  // px per tile on minimap
+    const mmW = MM_COLS * CELL;
+    const mmH = MM_ROWS * CELL;
+    const padH = 84; // bottom HUD height
+    const mx = W - mmW - 6;
+    const my = 6;
+
+    // Background
+    this._mmBg = this.add.rectangle(mx + mmW/2, my + mmH/2, mmW + 4, mmH + 4, 0x000000, 0.85)
+      .setScrollFactor(0).setDepth(95).setStrokeStyle(1, 0x333355);
+
+    // Render target (texture updated each turn)
+    if (this.textures.exists('minimap_canvas')) this.textures.remove('minimap_canvas');
+    this._mmCanvas = this.textures.createCanvas('minimap_canvas', mmW, mmH);
+    this._mmImage  = this.add.image(mx + mmW/2, my + mmH/2, 'minimap_canvas')
+      .setScrollFactor(0).setDepth(96).setOrigin(0.5);
+
+    // Player dot (drawn on top)
+    this._mmPlayer = this.add.rectangle(0, 0, CELL + 1, CELL + 1, 0xffff00)
+      .setScrollFactor(0).setDepth(97);
+
+    // Store for later
+    this._mmOrigin = { x: mx, y: my };
+    this._mmCell   = CELL;
+
+    // Label
+    this.add.text(mx, my - 12, `FLOOR ${GameState.floor}/${MAX_FLOORS}`, {
+      fontFamily:'"Press Start 2P"', fontSize:'6px', color:'#ffd700'
+    }).setScrollFactor(0).setDepth(97);
+
+    // Toggle: press M to show/hide minimap
+    this._mmVisible = true;
+    this.input.keyboard.on('keydown-M', () => {
+      this._mmVisible = !this._mmVisible;
+      this._mmBg.setVisible(this._mmVisible);
+      this._mmImage.setVisible(this._mmVisible);
+      this._mmPlayer.setVisible(this._mmVisible);
+    });
+
+    this._drawMinimap();
+  }
+
+  _drawMinimap() {
+    if (!this._mmCanvas) return;
+    const ctx   = this._mmCanvas.getContext();
+    const fd    = GameState.floorData;
+    const fov   = GameState.player?.get('fov');
+    const pPos  = GameState.player?.get('pos');
+    const CELL  = this._mmCell;
+    const ox    = this._mmOrigin.x;
+    const oy    = this._mmOrigin.y;
+
+    ctx.clearRect(0, 0, COLS * CELL, ROWS * CELL);
+
+    // TILE_TYPE color map for minimap
+    const TILE_COLORS = {
+      [TILE_TYPE.WALL]:       '#1a1a2e',
+      [TILE_TYPE.FLOOR]:      '#3a3a5a',
+      [TILE_TYPE.DOOR]:       '#8B5A2B',
+      [TILE_TYPE.STAIRS_DOWN]:'#ff6b35',
+      [TILE_TYPE.STAIRS_UP]:  '#44ff88',
+      [TILE_TYPE.CHEST]:      '#ffd700',
+      [TILE_TYPE.TRAP]:       '#ff4444',
+      [TILE_TYPE.WATER]:      '#1a4488',
+      [TILE_TYPE.LAVA]:       '#882200',
+    };
+
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const key  = `${x},${y}`;
+        const vis  = fov?.visible.has(key);
+        const exp  = fov?.explored.has(key);
+        if (!exp && !vis) continue;
+
+        const tile  = fd.tiles[y][x];
+        const col   = TILE_COLORS[tile] || '#2a2a3a';
+        ctx.fillStyle = vis ? col : this._dimColor(col, 0.4);
+        ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+      }
+    }
+
+    // Draw visible monsters as red dots
+    for (const id of fd.monsters) {
+      const m = GameState.world.entities.get(id);
+      if (!m) continue;
+      const mp  = m.get('pos');
+      const key = mp ? `${mp.x},${mp.y}` : '';
+      if (!mp || !fov?.visible.has(key)) continue;
+      const isBoss = m.hasTag('boss');
+      ctx.fillStyle = isBoss ? '#ff8800' : '#ff3333';
+      ctx.fillRect(mp.x * CELL, mp.y * CELL, CELL, CELL);
+    }
+
+    this._mmCanvas.refresh();
+
+    // Move player dot
+    if (pPos && this._mmPlayer) {
+      this._mmPlayer.setPosition(
+        ox + pPos.x * CELL + CELL / 2,
+        oy + pPos.y * CELL + CELL / 2
+      );
+    }
+  }
+
+  _dimColor(hex, factor) {
+    // darken a hex color string by factor (0–1)
+    const n = parseInt(hex.replace('#',''), 16);
+    const r = Math.round(((n>>16)&255) * factor);
+    const g = Math.round(((n>>8)&255)  * factor);
+    const b = Math.round((n&255)        * factor);
+    return `rgb(${r},${g},${b})`;
   }
 
   _setupInput() {
@@ -2652,9 +2817,9 @@ class DungeonScene extends Phaser.Scene {
           }
           break;
         // Open Inventory
-        case 'KeyI': this.scene.start('Inventory'); break;
-        // Skill tree
-        case 'KeyT': this.scene.start('SkillTree'); break;
+        case 'KeyI': InventoryScene._page='inventory'; this.scene.launch('Inventory'); break;
+        // Skill tree — use T (S is reserved for movement)
+        case 'KeyT': this.scene.launch('SkillTree'); break;
       }
     });
 
@@ -2997,6 +3162,21 @@ class DungeonScene extends Phaser.Scene {
     GameState.floorData.tiles[chest.y][chest.x] = TILE_TYPE.FLOOR;
   }
 
+  _cleanupForRestart() {
+    // Nullify player sprite so create() rebuilds it fresh
+    const pr = GameState.player?.get('render');
+    if (pr) { pr.sprite = null; pr.hpBg = null; pr.hpBar = null; }
+    // Remove all monster entities from ECS so _spawnMonsters starts clean
+    const monsters = GameState.world.queryTag('monster');
+    for (const m of monsters) {
+      const r = m.get('render');
+      // Don't call destroy() on Phaser objects — scene teardown handles it
+      if (r) { r.sprite = null; r.hpBg = null; r.hpBar = null; }
+      GameState.world.destroy(m.id);
+    }
+    if (GameState.floorData) GameState.floorData.monsters = [];
+  }
+
   _useStairs() {
     const p = GameState.player;
     const pos = p.get('pos');
@@ -3011,6 +3191,7 @@ class DungeonScene extends Phaser.Scene {
       GameState.floor++;
       GameState.addMessage(`Descending to floor ${GameState.floor}...`, '#ff6b35');
       GameState.floorData = generateFloor(GameState.floor, GameState.seed ^ (GameState.currentDungeon?.id||0));
+      this._cleanupForRestart();
       this.scene.restart();
     } else if (tile === TILE_TYPE.STAIRS_UP) {
       if (GameState.floor <= 1) {
@@ -3022,6 +3203,7 @@ class DungeonScene extends Phaser.Scene {
       GameState.floor--;
       GameState.addMessage(`Ascending to floor ${GameState.floor}...`, '#88ff88');
       GameState.floorData = generateFloor(GameState.floor, GameState.seed ^ (GameState.currentDungeon?.id||0));
+      this._cleanupForRestart();
       this.scene.restart();
     } else {
       GameState.addMessage('No stairs here!', '#888888');
@@ -3507,6 +3689,9 @@ class DungeonScene extends Phaser.Scene {
         if (render.hpBar) render.hpBar.setVisible(visible);
       }
     }
+
+    // Refresh minimap
+    this._drawMinimap();
   }
 
   _updateHUD() {

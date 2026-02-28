@@ -1,45 +1,201 @@
-d<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Roguelike Pixel PWA</title>
-    <link rel="manifest" href="manifest.json">
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background: #111;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            image-rendering: pixelated;
-            image-rendering: crisp-edges;
-        }
-        #game-container {
-            width: 800px;
-            height: 600px;
-            box-shadow: 0 0 20px #000;
-        }
-    </style>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+  <meta name="theme-color" content="#1a0a2e"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <title>DungeonForge</title>
+  <link rel="manifest" href="manifest.json"/>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323:wght@400&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: #0a0a0f;
+      overflow: hidden;
+      font-family: 'Press Start 2P', monospace;
+    }
+
+    #loading-screen {
+      position: fixed; inset: 0;
+      background: #0a0a0f;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.8s ease;
+    }
+
+    #loading-screen.fade-out { opacity: 0; pointer-events: none; }
+
+    .load-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(16px, 4vw, 36px);
+      color: #ff6b35;
+      text-shadow: 0 0 20px #ff6b3588, 0 0 40px #ff6b3544;
+      margin-bottom: 40px;
+      letter-spacing: 4px;
+      animation: glow-pulse 2s infinite;
+    }
+
+    .load-sub {
+      font-family: 'VT323', monospace;
+      font-size: clamp(14px, 2vw, 20px);
+      color: #8888aa;
+      margin-bottom: 60px;
+      letter-spacing: 2px;
+    }
+
+    .progress-container {
+      width: min(400px, 80vw);
+      height: 8px;
+      background: #1a1a2e;
+      border: 1px solid #333355;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #ff6b35, #ffd700);
+      width: 0%;
+      transition: width 0.3s ease;
+      box-shadow: 0 0 10px #ff6b3588;
+    }
+
+    .load-status {
+      font-family: 'VT323', monospace;
+      font-size: 14px;
+      color: #5555aa;
+      letter-spacing: 1px;
+    }
+
+    .pixel-dragon {
+      font-size: clamp(48px, 10vw, 80px);
+      margin-bottom: 20px;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes glow-pulse {
+      0%, 100% { text-shadow: 0 0 20px #ff6b3588, 0 0 40px #ff6b3544; }
+      50% { text-shadow: 0 0 30px #ff6b35cc, 0 0 60px #ff6b3588; }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    #game-container {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    #game-container canvas {
+      display: block;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    /* Toast notifications */
+    #toast-container {
+      position: fixed;
+      top: 20px; right: 20px;
+      z-index: 8888;
+      pointer-events: none;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
+    .toast {
+      font-family: 'VT323', monospace;
+      font-size: 16px;
+      padding: 8px 16px;
+      background: rgba(10,10,20,0.95);
+      border: 1px solid #333355;
+      border-radius: 2px;
+      color: #ccccee;
+      animation: toast-in 0.3s ease, toast-out 0.3s ease 2.7s forwards;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    }
+
+    .toast.rare { border-color: #4488ff; color: #88aaff; }
+    .toast.epic { border-color: #aa44ff; color: #cc88ff; }
+    .toast.legendary { border-color: #ffd700; color: #ffd700; }
+    .toast.warning { border-color: #ff4444; color: #ff8888; }
+
+    @keyframes toast-in { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes toast-out { from { opacity: 1; } to { opacity: 0; } }
+  </style>
 </head>
 <body>
-    <div id="game-container"></div>
 
-    <!-- Librerie aggiuntive -->
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/easystarjs@0.4.4/bin/easystar-0.4.4.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/simplex-noise@2.4.0/simplex-noise.min.js"></script>
-    
-    <script src="game.js"></script>
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('service-worker.js')
-                .then(() => console.log('Service Worker registrato'))
-                .catch(err => console.error('Errore SW:', err));
-        }
-    </script>
+<div id="loading-screen">
+  <div class="pixel-dragon">🐉</div>
+  <div class="load-title">DUNGEON FORGE</div>
+  <div class="load-sub">A PROCEDURAL ROGUELIKE</div>
+  <div class="progress-container">
+    <div class="progress-bar" id="load-bar"></div>
+  </div>
+  <div class="load-status" id="load-status">Initializing engine...</div>
+</div>
+
+<div id="game-container"></div>
+<div id="toast-container"></div>
+
+<script>
+  // Loading screen progress simulation
+  const bar = document.getElementById('load-bar');
+  const status = document.getElementById('load-status');
+  const messages = [
+    'Generating world seed...',
+    'Carving dungeons...',
+    'Populating monsters...',
+    'Forging items...',
+    'Binding spells...',
+    'Loading pixel shaders...',
+    'Awakening bosses...',
+    'Ready to forge!'
+  ];
+  let progress = 0;
+  const interval = setInterval(() => {
+    progress += Math.random() * 15;
+    if (progress > 95) progress = 95;
+    bar.style.width = progress + '%';
+    status.textContent = messages[Math.floor(progress / 13)] || messages[messages.length - 1];
+  }, 300);
+
+  window.onGameReady = function() {
+    clearInterval(interval);
+    bar.style.width = '100%';
+    status.textContent = 'Ready to forge!';
+    setTimeout(() => {
+      document.getElementById('loading-screen').classList.add('fade-out');
+      setTimeout(() => document.getElementById('loading-screen').remove(), 800);
+    }, 500);
+  };
+
+  // Toast helper exposed globally
+  window.showToast = function(msg, type = '') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = 'toast' + (type ? ' ' + type : '');
+    toast.textContent = msg;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3100);
+  };
+
+  // Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
+<script src="game.js"></script>
+
 </body>
 </html>

@@ -896,7 +896,7 @@ function generateFloor(floor, seed) {
     tiles, rooms, floor, seed: rng.seed,
     startX, startY,
     stairsDown: { x:downX, y:downY },
-    stairsUp:   { x:upX,   y:upY },
+    stairsUp:   { x:startX, y:startY },
     chests, traps, events,
     monsters: [], // filled by dungeon scene
   };
@@ -955,10 +955,10 @@ function generateWorldMap(seed) {
     towns.push({ x:tx, y:ty, id:i, name:`Town ${String.fromCharCode(65+i)}`, visited:false });
   }
 
-  // Markets (5 spread around the map)
+  // Markets (8 spread around the map)
   const markets = [];
-  const marketNames = ['Bazaar','Trading Post','Black Market','Merchant Hub','Caravan Stop'];
-  for (let i=0; i<5; i++) {
+  const marketNames = ['Bazaar','Trading Post','Black Market','Merchant Hub','Caravan Stop','Night Market','Alchemist Row','Gem Exchange'];
+  for (let i=0; i<8; i++) {
     let mx2, my2, attempts=0;
     do {
       mx2 = rng.int(3, WORLD_COLS-4);
@@ -968,7 +968,33 @@ function generateWorldMap(seed) {
     markets.push({ x:mx2, y:my2, id:i, name:marketNames[i], visited:false });
   }
 
-  return { tiles, dungeons, towns, markets, seed };
+  // Stables (6 places to buy mounts)
+  const stables = [];
+  const stableNames = ['Royal Stables','Horse Ranch','Beast Tamer','Dragon Keep','Shadow Kennel','Iron Stables'];
+  for (let i=0; i<6; i++) {
+    let sx2, sy2, attempts=0;
+    do {
+      sx2 = rng.int(3, WORLD_COLS-4);
+      sy2 = rng.int(3, WORLD_ROWS-4);
+      attempts++;
+    } while ((tiles[sy2][sx2].biome === BIOME.OCEAN || tiles[sy2][sx2].biome === BIOME.DUNGEON) && attempts < 60);
+    stables.push({ x:sx2, y:sy2, id:i, name:stableNames[i], visited:false });
+  }
+
+  // Companion camps (6 places to hire companions)
+  const camps = [];
+  const campNames = ['Adventurers Guild','Mercenary Camp','Knight Order','Mage Academy','Rogue Den','Holy Sanctum'];
+  for (let i=0; i<6; i++) {
+    let cx2, cy2, attempts=0;
+    do {
+      cx2 = rng.int(3, WORLD_COLS-4);
+      cy2 = rng.int(3, WORLD_ROWS-4);
+      attempts++;
+    } while ((tiles[cy2][cx2].biome === BIOME.OCEAN || tiles[cy2][cx2].biome === BIOME.DUNGEON) && attempts < 60);
+    camps.push({ x:cx2, y:cy2, id:i, name:campNames[i], visited:false });
+  }
+
+  return { tiles, dungeons, towns, markets, stables, camps, seed };
 }
 
 // ─────────────────────────────────────────────
@@ -2161,6 +2187,38 @@ class WorldMapScene extends Phaser.Scene {
       this.mapContainer.add(lbl);
     }
 
+    // Draw stables
+    for (const stable of (wm.stables || [])) {
+      const stImg = this.add.image(stable.x*tileSize, stable.y*tileSize, 'world_town')
+        .setScale(this.tileScale).setOrigin(0).setTint(0x88cc44)
+        .setInteractive({ useHandCursor:true });
+      stImg.on('pointerdown', () => this._showMountShop(W, H));
+      stImg.on('pointerover', () => {
+        this.hoverText.setText(`🐴 ${stable.name}\nMount Shop\nBuy mounts here!\nClick to Browse`);
+        this.hoverText.setVisible(true);
+      });
+      stImg.on('pointerout', () => this.hoverText.setVisible(false));
+      this.mapContainer.add(stImg);
+      const stLbl = this.add.text(stable.x*tileSize + tileSize/2, stable.y*tileSize - 4, '🐴', {fontSize:'12px'}).setOrigin(0.5, 1);
+      this.mapContainer.add(stLbl);
+    }
+
+    // Draw companion camps
+    for (const camp of (wm.camps || [])) {
+      const cImg = this.add.image(camp.x*tileSize, camp.y*tileSize, 'world_town')
+        .setScale(this.tileScale).setOrigin(0).setTint(0x4488ff)
+        .setInteractive({ useHandCursor:true });
+      cImg.on('pointerdown', () => this._showCompanionShop(W, H));
+      cImg.on('pointerover', () => {
+        this.hoverText.setText(`⚔ ${camp.name}\nCompanion Guild\nHire companions!\nClick to Browse`);
+        this.hoverText.setVisible(true);
+      });
+      cImg.on('pointerout', () => this.hoverText.setVisible(false));
+      this.mapContainer.add(cImg);
+      const cLbl = this.add.text(camp.x*tileSize + tileSize/2, camp.y*tileSize - 4, '⚔', {fontSize:'12px'}).setOrigin(0.5, 1);
+      this.mapContainer.add(cLbl);
+    }
+
     // Init player if not existing
     if (!GameState.player) {
       const startDng = wm.dungeons[0];
@@ -2266,18 +2324,28 @@ class WorldMapScene extends Phaser.Scene {
   }
 
   _buildLegend(W, H) {
-    const lx = W - 110, ly = H - 180;
-    const bg = this.add.rectangle(lx+50, ly+80, 110, 160, 0x0a0a1a, 0.9).setScrollFactor(0).setDepth(50);
-    this.add.text(lx+55, ly, 'BIOMES', {
-      fontFamily:'"Press Start 2P"', fontSize:'7px', color:'#ffd700',
+    const lx = W - 130, ly = H - 280;
+    this.add.rectangle(lx+60, ly+120, 130, 240, 0x0a0a1a, 0.92).setScrollFactor(0).setDepth(50).setStrokeStyle(1,0x333355);
+    this.add.text(lx+65, ly+4, 'MAP LEGEND', {
+      fontFamily:'"Press Start 2P"', fontSize:'6px', color:'#ffd700',
     }).setOrigin(0.5,0).setScrollFactor(0).setDepth(51);
-    const biomeNames = ['Plains','Forest','Desert','Snow','Swamp','Volcano','Ocean','Dungeon'];
-    const biomeColors = ['#7ec850','#2d6a2d','#e8c87a','#ddeeff','#4a7a4a','#c84a10','#1a4888','#aa44ff'];
-    biomeNames.forEach((name,i) => {
-      this.add.rectangle(lx+10, ly+20+i*16, 10, 10, parseInt(biomeColors[i].replace('#','0x')))
-        .setScrollFactor(0).setDepth(51);
-      this.add.text(lx+22, ly+14+i*16, name, {
-        fontFamily:'"VT323"', fontSize:'13px', color:'#ccccee',
+
+    const items = [
+      { icon:'⬛', color:'#7ec850', label:'Plains' },
+      { icon:'⬛', color:'#2d6a2d', label:'Forest' },
+      { icon:'⬛', color:'#e8c87a', label:'Desert' },
+      { icon:'⬛', color:'#1a4888', label:'Ocean' },
+      { icon:'🏰', color:'#aa44ff', label:'Dungeon' },
+      { icon:'🏠', color:'#ffffff', label:'Town (rest+shop)' },
+      { icon:'🛒', color:'#ffaa44', label:'Market' },
+      { icon:'🐴', color:'#88cc44', label:'Stable (mounts)' },
+      { icon:'⚔',  color:'#4488ff', label:'Guild (companions)' },
+      { icon:'🧑', color:'#ffff44', label:'You' },
+    ];
+    items.forEach((it, i) => {
+      this.add.text(lx+8,  ly+20+i*21, it.icon, { fontSize:'13px' }).setScrollFactor(0).setDepth(51);
+      this.add.text(lx+24, ly+20+i*21, it.label, {
+        fontFamily:'"VT323"', fontSize:'13px', color: it.color,
       }).setScrollFactor(0).setDepth(51);
     });
   }
@@ -2402,6 +2470,9 @@ class WorldMapScene extends Phaser.Scene {
       fontFamily:'"Press Start 2P"', fontSize:'9px', color:'#ffd700',
     }).setOrigin(0.5).setScrollFactor(sf).setDepth(depth));
 
+    // Define closeAll FIRST (fixes temporal dead zone)
+    const closeAll = () => elements.forEach(e => e.destroy());
+
     // Companion + Mount buttons above close
     const compBtn = add(this.add.rectangle(ox - 90, oy + PH/2 - 68, 150, 30, 0x0d1a0d)
       .setStrokeStyle(1, 0x44ff88).setScrollFactor(sf).setDepth(depth).setInteractive({useHandCursor:true}));
@@ -2419,8 +2490,7 @@ class WorldMapScene extends Phaser.Scene {
     mntBtn.on('pointerover', () => mntBtn.setFillStyle(0x0a1a3a));
     mntBtn.on('pointerout',  () => mntBtn.setFillStyle(0x0a0d1a));
 
-    // Close button
-    const closeAll = () => elements.forEach(e => e.destroy());
+    // Close button (closeAll already defined above)
     const closeRect = add(this.add.rectangle(ox, oy + PH/2 - 30, 180, 38, 0x1a1a3a)
       .setStrokeStyle(1, 0xff6b35).setScrollFactor(sf).setDepth(depth)
       .setInteractive({ useHandCursor:true }));
@@ -3202,10 +3272,8 @@ class DungeonScene extends Phaser.Scene {
 
   _buildTouchControls() {
     const W = this.scale.width, H = this.scale.height;
-    // Only show on touch devices or small screens
-    const isTouch = this.sys.game.device.input.touch || W < 900;
-
-    if (!isTouch) return;
+    // Always build touch controls - they work with mouse too on desktop
+    // Users can hide them with the toggle button
 
     const panelH = 80; // HUD height
     const btnSize = 52;
@@ -3256,10 +3324,19 @@ class DungeonScene extends Phaser.Scene {
       }
     });
 
-    // Mount icon display
+    // Collect all touch UI objects for toggle
+    const touchObjects = [];
+    // (all makeBtn calls above added to scene — capture them via a wrapper)
+
+    // Status strip above D-pad: mount + companion
+    const statusY = H - panelH - 28;
     if (GameState.mount) {
-      this.add.text(W/2, H - panelH - 30, `${GameState.mount.icon} ${GameState.mount.name}`,
-        {fontFamily:'"VT323"',fontSize:'13px',color:'#4488ff'}).setOrigin(0.5).setScrollFactor(0).setDepth(200);
+      this.add.text(padX, statusY, `${GameState.mount.icon}${GameState.mount.name}`,
+        {fontFamily:'"VT323"', fontSize:'12px', color:'#88ccff'}).setOrigin(0.5).setScrollFactor(0).setDepth(200);
+    }
+    if (GameState.companion) {
+      this.add.text(padX, statusY - 16, `${GameState.companion.icon}${GameState.companion.name}`,
+        {fontFamily:'"VT323"', fontSize:'12px', color:'#88ff88'}).setOrigin(0.5).setScrollFactor(0).setDepth(200);
     }
   }
 
@@ -3666,7 +3743,15 @@ class DungeonScene extends Phaser.Scene {
       this._cleanupForRestart();
       this.scene.restart();
     } else {
-      GameState.addMessage('No stairs here!', '#888888');
+      // Check if there's stairs nearby (hint)
+      const p2 = GameState.player;
+      const pos2 = p2.get('pos');
+      const fd2 = GameState.floorData;
+      const hasDown = fd2.stairsDown && Math.abs(fd2.stairsDown.x-pos2.x)+Math.abs(fd2.stairsDown.y-pos2.y) < 3;
+      const hasUp   = fd2.stairsUp   && Math.abs(fd2.stairsUp.x  -pos2.x)+Math.abs(fd2.stairsUp.y  -pos2.y) < 3;
+      if (hasDown) GameState.addMessage('Stairs down nearby — move onto ▼ and press E.', '#ff8844');
+      else if (hasUp) GameState.addMessage('Stairs up nearby — move onto ▲ and press E.', '#88ff88');
+      else GameState.addMessage('No stairs here! Walk to the ▼▲ tile.', '#888888');
     }
   }
 

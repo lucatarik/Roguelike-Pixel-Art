@@ -434,6 +434,80 @@ const SPELLS = {
 };
 
 // ─────────────────────────────────────────────
+// COMPANION DATABASE
+// ─────────────────────────────────────────────
+const COMPANIONS = {
+  squire:    { id:'squire',    name:'Squire',          icon:'🧑', price:80,   hp:40,  atk:6,  def:3,  aiType:'melee',  range:1, color:0x4488ff, sprite:'mob_skeleton', desc:'A young swordsman. Attacks adjacent enemies.' },
+  archer:    { id:'archer',   name:'Elven Archer',     icon:'🧝', price:150,  hp:30,  atk:10, def:2,  aiType:'ranged', range:5, color:0x44ff88, sprite:'mob_mage',     desc:'Shoots enemies from range.' },
+  wizard:    { id:'wizard',   name:'Apprentice Mage',  icon:'🧙', price:220,  hp:25,  atk:4,  def:2,  aiType:'mage',   range:4, color:0xaa44ff, sprite:'mob_mage',     desc:'Casts Fireball every 3 turns.' },
+  paladin:   { id:'paladin',  name:'Holy Paladin',     icon:'⚔',  price:300,  hp:60,  atk:8,  def:8,  aiType:'melee',  range:1, color:0xffd700, sprite:'mob_golem',    desc:'Tanks damage and heals you every 5 turns.' },
+  rogue_c:   { id:'rogue_c',  name:'Rogue',            icon:'🗡', price:180,  hp:35,  atk:14, def:3,  aiType:'melee',  range:1, color:0x334455, sprite:'mob_assassin', desc:'Deals double damage from behind.' },
+  golem_c:   { id:'golem_c',  name:'Stone Familiar',   icon:'🗿', price:400,  hp:100, atk:12, def:16, aiType:'melee',  range:1, color:0x888888, sprite:'mob_golem',    desc:'Powerful tank. Slow but unbreakable.' },
+};
+
+// ─────────────────────────────────────────────
+// MOUNT DATABASE
+// ─────────────────────────────────────────────
+const MOUNTS = {
+  horse:       { id:'horse',      name:'War Horse',         icon:'🐴', price:200,  stepsPerTurn:2, bonusAtk:0,  bonusDef:2,  wallWalk:false, trapImmune:false, lavaImmune:false, waterWalk:false, desc:'Move 2 tiles/turn. +2 DEF.' },
+  warhorse:    { id:'warhorse',   name:'Warhorse',          icon:'🐎', price:400,  stepsPerTurn:2, bonusAtk:4,  bonusDef:4,  wallWalk:false, trapImmune:true,  lavaImmune:false, waterWalk:false, desc:'Move 2 tiles/turn. Immune to traps. +4 ATK/DEF.' },
+  pegasus:     { id:'pegasus',    name:'Pegasus',           icon:'🦄', price:800,  stepsPerTurn:3, bonusAtk:0,  bonusDef:0,  wallWalk:true,  trapImmune:true,  lavaImmune:false, waterWalk:true,  desc:'Move 3 tiles/turn. Flies over walls & traps.' },
+  dragon_m:    { id:'dragon_m',   name:'Dragon Mount',      icon:'🐉', price:2000, stepsPerTurn:2, bonusAtk:10, bonusDef:8,  wallWalk:false, trapImmune:true,  lavaImmune:true,  waterWalk:false, desc:'Move 2 tiles/turn. +10 ATK. Immune to traps & lava.' },
+  shadow_wolf: { id:'shadow_wolf',name:'Shadow Wolf',       icon:'🐺', price:500,  stepsPerTurn:2, bonusAtk:6,  bonusDef:0,  wallWalk:false, trapImmune:true,  lavaImmune:false, waterWalk:false, desc:'Move 2 tiles/turn. +6 ATK. Immune to traps. Faster.' },
+  turtle:      { id:'turtle',     name:'Iron Turtle',       icon:'🐢', price:120,  stepsPerTurn:1, bonusAtk:0,  bonusDef:12, wallWalk:false, trapImmune:true,  lavaImmune:false, waterWalk:false, desc:'Normal speed. Massive DEF bonus. Trap immune.' },
+};
+
+// ─────────────────────────────────────────────
+// MARKET GOODS (dynamic pricing)
+// ─────────────────────────────────────────────
+const MARKET_GOODS = [
+  { id:'mg_sword',    name:'Iron Sword',       icon:'⚔',  itemId:'short_sword',   basePriceRange:[40,70] },
+  { id:'mg_axe',      name:'Battle Axe',       icon:'🪓', itemId:'battle_axe',    basePriceRange:[130,200] },
+  { id:'mg_armor',    name:'Chain Mail',       icon:'🛡', itemId:'chain_mail',    basePriceRange:[100,170] },
+  { id:'mg_ring',     name:'Ring of Might',    icon:'💍', itemId:'ring_str',      basePriceRange:[150,250] },
+  { id:'mg_hp_s',     name:'Health Potion',    icon:'🧪', itemId:'potion_hp_s',   basePriceRange:[10,25] },
+  { id:'mg_hp_m',     name:'Super Potion',     icon:'🧪', itemId:'potion_hp_m',   basePriceRange:[30,60] },
+  { id:'mg_antidote', name:'Antidote',         icon:'💊', itemId:'antidote',      basePriceRange:[12,30] },
+  { id:'mg_scroll_tp',name:'Teleport Scroll',  icon:'📜', itemId:'scroll_tp',     basePriceRange:[30,80] },
+  { id:'mg_crystal',  name:'Magic Crystal',    icon:'💎', itemId:'magic_crystal', basePriceRange:[20,50] },
+  { id:'mg_tome_f',   name:'Fireball Tome',    icon:'📗', itemId:'tome_fireball', basePriceRange:[80,160] },
+  { id:'mg_food',     name:'Food Ration',      icon:'🍖', itemId:'food_ration',   basePriceRange:[5,15] },
+  { id:'mg_bomb',     name:'Bomb',             icon:'💣', itemId:'bomb',          basePriceRange:[20,55] },
+];
+
+// Market state — prices evolve after each dungeon completion
+const MarketState = {
+  priceFactors: {},   // goodId -> current multiplier (0.5 – 2.0)
+  marketRNG: null,
+  init(seed) {
+    this.marketRNG = new RNG((seed ^ 0xBEEF) >>> 0);
+    // Initialise all factors to 1.0
+    for (const g of MARKET_GOODS) this.priceFactors[g.id] = 1.0;
+  },
+  fluctuate() {
+    // Called after a dungeon floor 10 completion (or after any floor for demo)
+    if (!this.marketRNG) return;
+    for (const g of MARKET_GOODS) {
+      const delta = (this.marketRNG.next() - 0.5) * 0.4; // ±0.2
+      this.priceFactors[g.id] = Math.max(0.4, Math.min(2.5,
+        (this.priceFactors[g.id] || 1.0) + delta
+      ));
+    }
+  },
+  getPrice(good) {
+    const [lo, hi] = good.basePriceRange;
+    const base = Math.floor((lo + hi) / 2);
+    return Math.max(1, Math.round(base * (this.priceFactors[good.id] || 1.0)));
+  },
+  getTrend(good) {
+    const f = this.priceFactors[good.id] || 1.0;
+    if (f > 1.3)  return { arrow:'▲', color:'#ff4444' };
+    if (f < 0.7)  return { arrow:'▼', color:'#44ff88' };
+    return { arrow:'●', color:'#aaaaaa' };
+  }
+};
+
+// ─────────────────────────────────────────────
 // SKILL TREE
 // ─────────────────────────────────────────────
 const SKILL_TREE = {
@@ -571,29 +645,56 @@ function getStatusMods(entity) {
 // MONSTER DATABASE
 // ─────────────────────────────────────────────
 const MONSTERS = {
-  goblin:     { id:'goblin',     name:'Goblin',        icon:'👺', hp:15, atk:4, def:1, spd:2, luk:3, xp:15, gold:[1,5],  lootTable:'goblin',   floorRange:[1,4],  aiType:'basic',     sprite:'mob_goblin',   color:0x44ff44, rare:false },
-  orc:        { id:'orc',        name:'Orc Warrior',   icon:'👹', hp:35, atk:9, def:4, spd:0, luk:1, xp:40, gold:[3,10], lootTable:'orc',      floorRange:[2,6],  aiType:'aggressive',sprite:'mob_orc',      color:0x888800, rare:false },
-  skeleton:   { id:'skeleton',   name:'Skeleton',      icon:'💀', hp:20, atk:6, def:2, spd:1, luk:2, xp:25, gold:[2,8],  lootTable:'skeleton', floorRange:[1,5],  aiType:'basic',     sprite:'mob_skeleton', color:0xdddddd, rare:false, undead:true },
-  spider:     { id:'spider',     name:'Cave Spider',   icon:'🕷', hp:12, atk:5, def:1, spd:3, luk:2, xp:20, gold:[1,4],  lootTable:'spider',   floorRange:[1,4],  aiType:'swarm',     sprite:'mob_spider',   color:0x664400, rare:false, statusOnHit:'poison' },
-  bat:        { id:'bat',        name:'Giant Bat',     icon:'🦇', hp:10, atk:4, def:0, spd:4, luk:3, xp:12, gold:[0,3],  lootTable:'common',   floorRange:[1,3],  aiType:'erratic',   sprite:'mob_bat',      color:0x884488, rare:false },
-  troll:      { id:'troll',      name:'Cave Troll',    icon:'👺', hp:60, atk:14, def:6, spd:-1,luk:1, xp:80, gold:[5,20], lootTable:'orc',      floorRange:[4,8],  aiType:'aggressive',sprite:'mob_troll',    color:0x228822, rare:false, regen:3 },
-  mage_npc:   { id:'mage_npc',   name:'Dark Mage',     icon:'🧙', hp:25, atk:3, def:2, spd:1, luk:2, xp:55, gold:[5,15], lootTable:'mage',     floorRange:[3,7],  aiType:'ranged',    sprite:'mob_mage',     color:0xaa00ff, rare:false, spells:['fireball','ice_spike'] },
-  vampire:    { id:'vampire',    name:'Vampire',       icon:'🧛', hp:45, atk:12, def:5, spd:3, luk:4, xp:90, gold:[10,30],lootTable:'rare',     floorRange:[5,9],  aiType:'aggressive',sprite:'mob_vampire',  color:0x880000, rare:true,  statusOnHit:'drain' },
-  lich:       { id:'lich',       name:'Lich',          icon:'💀', hp:70, atk:8, def:8, spd:1, luk:5, xp:150,gold:[15,40],lootTable:'epic',     floorRange:[7,10], aiType:'boss_lite',  sprite:'mob_lich',     color:0xaa44ff, rare:true,  undead:true, spells:['fireball','lightning','life_drain'] },
-  golem:      { id:'golem',      name:'Stone Golem',   icon:'🗿', hp:80, atk:16, def:12,spd:-2,luk:0, xp:120,gold:[8,25], lootTable:'rare',     floorRange:[5,9],  aiType:'guardian',  sprite:'mob_golem',    color:0x888888, rare:true },
-  dragon:     { id:'dragon',     name:'Ancient Dragon',icon:'🐉', hp:200,atk:28, def:18,spd:2, luk:5, xp:500,gold:[50,150],lootTable:'dragon',  floorRange:[9,10], aiType:'boss',       sprite:'mob_dragon',   color:0xff4400, rare:false, boss:true, spells:['fireball'] },
-  boss_lich:  { id:'boss_lich',  name:'Lich King',     icon:'👑', hp:300,atk:20, def:15,spd:2, luk:8, xp:800,gold:[100,200],lootTable:'boss',   floorRange:[10,10],aiType:'boss',       sprite:'boss_lich',    color:0xffaa00, rare:false, boss:true, undead:true, spells:['lightning','life_drain','fireball'] },
+  // ── TIER 1: Floor 1-3 ─────────────────────────────────────────
+  goblin:      { id:'goblin',      name:'Goblin',          icon:'👺', hp:15,  atk:4,  def:1,  spd:2,  luk:3, xp:15,  gold:[1,5],   lootTable:'goblin',   floorRange:[1,4],  aiType:'basic',      sprite:'mob_goblin',   color:0x44ff44, rare:false },
+  bat:         { id:'bat',         name:'Giant Bat',        icon:'🦇', hp:10,  atk:4,  def:0,  spd:4,  luk:3, xp:12,  gold:[0,3],   lootTable:'common',   floorRange:[1,3],  aiType:'erratic',    sprite:'mob_bat',      color:0x884488, rare:false },
+  skeleton:    { id:'skeleton',    name:'Skeleton',         icon:'💀', hp:20,  atk:6,  def:2,  spd:1,  luk:2, xp:25,  gold:[2,8],   lootTable:'skeleton', floorRange:[1,5],  aiType:'basic',      sprite:'mob_skeleton', color:0xdddddd, rare:false, undead:true },
+  spider:      { id:'spider',      name:'Cave Spider',      icon:'🕷', hp:12,  atk:5,  def:1,  spd:3,  luk:2, xp:20,  gold:[1,4],   lootTable:'spider',   floorRange:[1,4],  aiType:'swarm',      sprite:'mob_spider',   color:0x664400, rare:false, statusOnHit:'poison' },
+  rat:         { id:'rat',         name:'Giant Rat',        icon:'🐀', hp:8,   atk:3,  def:0,  spd:3,  luk:1, xp:8,   gold:[0,2],   lootTable:'common',   floorRange:[1,2],  aiType:'swarm',      sprite:'mob_rat',      color:0x886644, rare:false },
+  slime:       { id:'slime',       name:'Green Slime',      icon:'🟢', hp:18,  atk:4,  def:3,  spd:0,  luk:0, xp:18,  gold:[0,3],   lootTable:'common',   floorRange:[1,3],  aiType:'basic',      sprite:'mob_slime',    color:0x44cc44, rare:false, statusOnHit:'slow' },
+  // ── TIER 2: Floor 2-6 ─────────────────────────────────────────
+  orc:         { id:'orc',         name:'Orc Warrior',      icon:'👹', hp:35,  atk:9,  def:4,  spd:0,  luk:1, xp:40,  gold:[3,10],  lootTable:'orc',      floorRange:[2,6],  aiType:'aggressive', sprite:'mob_orc',      color:0x888800, rare:false },
+  kobold:      { id:'kobold',      name:'Kobold Scout',     icon:'🦎', hp:14,  atk:5,  def:2,  spd:4,  luk:4, xp:22,  gold:[2,6],   lootTable:'goblin',   floorRange:[2,5],  aiType:'erratic',    sprite:'mob_kobold',   color:0x88aa22, rare:false },
+  zombie:      { id:'zombie',      name:'Zombie',           icon:'🧟', hp:28,  atk:7,  def:1,  spd:-1, luk:0, xp:30,  gold:[1,5],   lootTable:'skeleton', floorRange:[2,5],  aiType:'aggressive', sprite:'mob_zombie',   color:0x668855, rare:false, undead:true, regen:1 },
+  gnoll:       { id:'gnoll',       name:'Gnoll Berserker',  icon:'🐺', hp:30,  atk:10, def:3,  spd:2,  luk:2, xp:38,  gold:[3,8],   lootTable:'orc',      floorRange:[2,6],  aiType:'aggressive', sprite:'mob_gnoll',    color:0xaa8844, rare:false },
+  mage_npc:    { id:'mage_npc',    name:'Dark Mage',        icon:'🧙', hp:25,  atk:3,  def:2,  spd:1,  luk:2, xp:55,  gold:[5,15],  lootTable:'mage',     floorRange:[3,7],  aiType:'ranged',     sprite:'mob_mage',     color:0xaa00ff, rare:false, spells:['fireball','ice_spike'] },
+  wraith:      { id:'wraith',      name:'Wraith',           icon:'👻', hp:22,  atk:8,  def:4,  spd:3,  luk:3, xp:50,  gold:[2,8],   lootTable:'skeleton', floorRange:[3,6],  aiType:'erratic',    sprite:'mob_wraith',   color:0xaaccff, rare:false, undead:true, statusOnHit:'slow' },
+  // ── TIER 3: Floor 4-8 ─────────────────────────────────────────
+  troll:       { id:'troll',       name:'Cave Troll',       icon:'👺', hp:60,  atk:14, def:6,  spd:-1, luk:1, xp:80,  gold:[5,20],  lootTable:'orc',      floorRange:[4,8],  aiType:'aggressive', sprite:'mob_troll',    color:0x228822, rare:false, regen:3 },
+  wyvern:      { id:'wyvern',      name:'Wyvern',           icon:'🐲', hp:50,  atk:13, def:5,  spd:3,  luk:2, xp:90,  gold:[8,20],  lootTable:'rare',     floorRange:[4,8],  aiType:'ranged',     sprite:'mob_wyvern',   color:0x228844, rare:false, spells:['fireball'] },
+  orc_shaman:  { id:'orc_shaman',  name:'Orc Shaman',       icon:'👹', hp:35,  atk:6,  def:3,  spd:1,  luk:3, xp:70,  gold:[6,18],  lootTable:'mage',     floorRange:[4,7],  aiType:'ranged',     sprite:'mob_orc',      color:0x886600, rare:false, spells:['fireball','ice_spike'] },
+  minotaur:    { id:'minotaur',    name:'Minotaur',         icon:'🐂', hp:75,  atk:17, def:7,  spd:0,  luk:1, xp:100, gold:[8,22],  lootTable:'orc',      floorRange:[5,8],  aiType:'aggressive', sprite:'mob_minotaur', color:0x884422, rare:false },
+  assassin:    { id:'assassin',    name:'Shadow Assassin',  icon:'🥷', hp:40,  atk:16, def:5,  spd:4,  luk:6, xp:95,  gold:[10,25], lootTable:'rare',     floorRange:[4,8],  aiType:'aggressive', sprite:'mob_assassin', color:0x334455, rare:true, statusOnHit:'poison' },
+  // ── TIER 4: Floor 6-10 ────────────────────────────────────────
+  vampire:     { id:'vampire',     name:'Vampire',          icon:'🧛', hp:45,  atk:12, def:5,  spd:3,  luk:4, xp:90,  gold:[10,30], lootTable:'rare',     floorRange:[5,9],  aiType:'aggressive', sprite:'mob_vampire',  color:0x880000, rare:true, statusOnHit:'drain' },
+  golem:       { id:'golem',       name:'Stone Golem',      icon:'🗿', hp:80,  atk:16, def:12, spd:-2, luk:0, xp:120, gold:[8,25],  lootTable:'rare',     floorRange:[5,9],  aiType:'guardian',   sprite:'mob_golem',    color:0x888888, rare:true },
+  lich:        { id:'lich',        name:'Lich',             icon:'💀', hp:70,  atk:8,  def:8,  spd:1,  luk:5, xp:150, gold:[15,40], lootTable:'epic',     floorRange:[7,10], aiType:'boss_lite',  sprite:'mob_lich',     color:0xaa44ff, rare:true, undead:true, spells:['fireball','lightning','life_drain'] },
+  demon:       { id:'demon',       name:'Fire Demon',       icon:'😈', hp:65,  atk:18, def:8,  spd:2,  luk:3, xp:130, gold:[12,30], lootTable:'epic',     floorRange:[7,10], aiType:'aggressive', sprite:'mob_demon',    color:0xff2200, rare:true, spells:['fireball'], statusOnHit:'burn' },
+  dark_knight: { id:'dark_knight', name:'Dark Knight',      icon:'⚔',  hp:90,  atk:20, def:15, spd:1,  luk:2, xp:160, gold:[15,40], lootTable:'epic',     floorRange:[7,10], aiType:'aggressive', sprite:'mob_darknight',color:0x222244, rare:true },
+  necromancer: { id:'necromancer', name:'Necromancer',      icon:'💀', hp:55,  atk:10, def:6,  spd:1,  luk:4, xp:140, gold:[12,35], lootTable:'mage',     floorRange:[6,9],  aiType:'ranged',     sprite:'mob_mage',     color:0x442266, rare:true, undead:true, spells:['life_drain','fireball'] },
+  // ── BOSSES ────────────────────────────────────────────────────
+  dragon:      { id:'dragon',      name:'Ancient Dragon',   icon:'🐉', hp:200, atk:28, def:18, spd:2,  luk:5, xp:500, gold:[50,150],lootTable:'dragon',   floorRange:[9,10], aiType:'boss',       sprite:'mob_dragon',   color:0xff4400, rare:false, boss:true, spells:['fireball'] },
+  boss_lich:   { id:'boss_lich',   name:'Lich King',        icon:'👑', hp:300, atk:20, def:15, spd:2,  luk:8, xp:800, gold:[100,200],lootTable:'boss',    floorRange:[10,10],aiType:'boss',       sprite:'boss_lich',    color:0xffaa00, rare:false, boss:true, undead:true, spells:['lightning','life_drain','fireball'] },
 };
+
+// Difficulty scalar per floor — applied in spawnMonster
+function floorDifficultyScale(floor) {
+  // Exponential scaling: floor 1=1.0, floor 5=1.4, floor 10=2.0
+  return 1 + (floor - 1) * 0.11;
+}
 
 function spawnMonster(world, id, x, y, floor, rng) {
   const def = MONSTERS[id];
   if (!def) return null;
   const e = world.create();
-  const hpVar = rng.int(-5, 5) + (floor-1) * 3;
-  const atkVar = Math.floor(floor * 0.5);
+  const scale = floorDifficultyScale(floor);
+  // HP: base * scale + small random variance
+  const scaledHp  = Math.round(def.hp  * scale) + rng.int(-3, 3);
+  const scaledAtk = Math.round(def.atk * scale);
+  const scaledDef = Math.round(def.def * scale);
   e.add(C.pos(x, y, floor))
-   .add(C.health(def.hp + hpVar, def.hp + hpVar))
-   .add(C.stats(def.atk + atkVar, def.def + Math.floor(floor*0.3), def.spd, 0, def.luk))
+   .add(C.health(scaledHp, scaledHp))
+   .add(C.stats(scaledAtk, scaledDef, def.spd, 0, def.luk))
    .add(C.render(def.sprite || 'mob_goblin', def.color))
    .add(C.actor('enemy', def.aiType))
    .add(C.ai(def.aiType))
@@ -604,9 +705,9 @@ function spawnMonster(world, id, x, y, floor, rng) {
   const mon = { ...def };
   e.components.monsterDef = mon;
   if (def.undead) e.tag('undead');
-  if (def.regen) e.components.regen = def.regen;
-  e.gold = rng.int(def.gold[0], def.gold[1]);
-  e.xpReward = def.xp + Math.floor(floor * 2);
+  if (def.regen) e.components.regen = Math.round(def.regen * scale);
+  e.gold = Math.round(rng.int(def.gold[0], def.gold[1]) * scale);
+  e.xpReward = Math.round((def.xp + floor * 2) * Math.max(1, scale * 0.8));
   return e;
 }
 
@@ -726,20 +827,20 @@ function generateFloor(floor, seed) {
   }
 
   // Place stairs
+  // RULE: stairs-up = player start point (so going up lands where you came from)
   const shuffledRooms = rng.shuffle([...rooms]);
-  let downRoom = shuffledRooms[0];
-  let upRoom   = shuffledRooms[shuffledRooms.length-1];
-  const downX = Math.floor((downRoom.x1+downRoom.x2)/2);
-  const downY = Math.floor((downRoom.y1+downRoom.y2)/2);
-  tiles[downY][downX] = TILE_TYPE.STAIRS_DOWN;
-  const upX = Math.floor((upRoom.x1+upRoom.x2)/2);
-  const upY = Math.floor((upRoom.y1+upRoom.y2)/2);
-  tiles[upY][upX] = TILE_TYPE.STAIRS_UP;
+  let upRoom   = shuffledRooms[0];                          // first room  = spawn / stairs-up
+  let downRoom = shuffledRooms[shuffledRooms.length - 1];   // last room   = stairs-down
 
-  // Player start
-  const startRoom = shuffledRooms[Math.floor(shuffledRooms.length/2)];
-  const startX = Math.floor((startRoom.x1+startRoom.x2)/2);
-  const startY = Math.floor((startRoom.y1+startRoom.y2)/2);
+  // stairs-up on the spawn tile itself
+  const startX = Math.floor((upRoom.x1 + upRoom.x2) / 2);
+  const startY = Math.floor((upRoom.y1 + upRoom.y2) / 2);
+  tiles[startY][startX] = TILE_TYPE.STAIRS_UP;
+
+  // stairs-down in the farthest room
+  const downX = Math.floor((downRoom.x1 + downRoom.x2) / 2);
+  const downY = Math.floor((downRoom.y1 + downRoom.y2) / 2);
+  tiles[downY][downX] = TILE_TYPE.STAIRS_DOWN;
 
   // Place chests
   const chestRooms = rng.shuffle([...rooms]).slice(0, Math.min(4, rooms.length));
@@ -854,7 +955,20 @@ function generateWorldMap(seed) {
     towns.push({ x:tx, y:ty, id:i, name:`Town ${String.fromCharCode(65+i)}`, visited:false });
   }
 
-  return { tiles, dungeons, towns, seed };
+  // Markets (5 spread around the map)
+  const markets = [];
+  const marketNames = ['Bazaar','Trading Post','Black Market','Merchant Hub','Caravan Stop'];
+  for (let i=0; i<5; i++) {
+    let mx2, my2, attempts=0;
+    do {
+      mx2 = rng.int(3, WORLD_COLS-4);
+      my2 = rng.int(3, WORLD_ROWS-4);
+      attempts++;
+    } while ((tiles[my2][mx2].biome === BIOME.OCEAN || tiles[my2][mx2].biome === BIOME.DUNGEON) && attempts < 60);
+    markets.push({ x:mx2, y:my2, id:i, name:marketNames[i], visited:false });
+  }
+
+  return { tiles, dungeons, towns, markets, seed };
 }
 
 // ─────────────────────────────────────────────
@@ -1721,6 +1835,9 @@ const GameState = {
   spellTarget: null,
   selectedSpell: null,
   targeting: false,
+  companion: null,    // active companion def (from COMPANIONS)
+  companionEntity: null, // ECS entity
+  mount: null,        // active mount def (from MOUNTS)
 
   addMessage(text, color='#ccccee') {
     this.messageLog.unshift({ text, color, turn:this.turnCount });
@@ -2018,11 +2135,30 @@ class WorldMapScene extends Phaser.Scene {
         .setScale(this.tileScale).setOrigin(0).setInteractive({ useHandCursor:true });
       img.on('pointerdown', () => this.visitTown(town));
       img.on('pointerover', () => {
-        this.hoverText.setText(`${town.name}\nRest & Shop\nClick to Visit`);
+        this.hoverText.setText(`${town.name}\nRest & Shop\nCompanions & Mounts\nClick to Visit`);
         this.hoverText.setVisible(true);
       });
       img.on('pointerout', () => this.hoverText.setVisible(false));
       this.mapContainer.add(img);
+    }
+
+    // Draw markets
+    if (!MarketState.marketRNG) MarketState.init(GameState.seed);
+    for (const mkt of (wm.markets || [])) {
+      const mktImg = this.add.image(mkt.x*tileSize, mkt.y*tileSize, 'world_town')
+        .setScale(this.tileScale).setOrigin(0).setTint(0xffaa44)
+        .setInteractive({ useHandCursor:true });
+      mktImg.on('pointerdown', () => this._showMarket(mkt));
+      mktImg.on('pointerover', () => {
+        this.hoverText.setText(`🛒 ${mkt.name}\nDynamic Market\nPrices change!\nClick to Browse`);
+        this.hoverText.setVisible(true);
+      });
+      mktImg.on('pointerout', () => this.hoverText.setVisible(false));
+      this.mapContainer.add(mktImg);
+      const lbl = this.add.text(mkt.x*tileSize + tileSize/2, mkt.y*tileSize - 4, '🛒', {
+        fontSize:'12px'
+      }).setOrigin(0.5, 1);
+      this.mapContainer.add(lbl);
     }
 
     // Init player if not existing
@@ -2266,6 +2402,23 @@ class WorldMapScene extends Phaser.Scene {
       fontFamily:'"Press Start 2P"', fontSize:'9px', color:'#ffd700',
     }).setOrigin(0.5).setScrollFactor(sf).setDepth(depth));
 
+    // Companion + Mount buttons above close
+    const compBtn = add(this.add.rectangle(ox - 90, oy + PH/2 - 68, 150, 30, 0x0d1a0d)
+      .setStrokeStyle(1, 0x44ff88).setScrollFactor(sf).setDepth(depth).setInteractive({useHandCursor:true}));
+    add(this.add.text(ox - 90, oy + PH/2 - 68, `⚔ COMPANIONS${GameState.companion?' ✓':''}`,
+      {fontFamily:'"VT323"', fontSize:'15px', color:'#44ff88'}).setOrigin(0.5).setScrollFactor(sf).setDepth(depth+1).setInteractive({useHandCursor:true}));
+    compBtn.on('pointerdown', () => { closeAll(); this._showCompanionShop(W, H); });
+    compBtn.on('pointerover', () => compBtn.setFillStyle(0x1a3a1a));
+    compBtn.on('pointerout',  () => compBtn.setFillStyle(0x0d1a0d));
+
+    const mntBtn = add(this.add.rectangle(ox + 90, oy + PH/2 - 68, 150, 30, 0x0a0d1a)
+      .setStrokeStyle(1, 0x4488ff).setScrollFactor(sf).setDepth(depth).setInteractive({useHandCursor:true}));
+    add(this.add.text(ox + 90, oy + PH/2 - 68, `🐴 MOUNTS${GameState.mount?' ✓':''}`,
+      {fontFamily:'"VT323"', fontSize:'15px', color:'#4488ff'}).setOrigin(0.5).setScrollFactor(sf).setDepth(depth+1).setInteractive({useHandCursor:true}));
+    mntBtn.on('pointerdown', () => { closeAll(); this._showMountShop(W, H); });
+    mntBtn.on('pointerover', () => mntBtn.setFillStyle(0x0a1a3a));
+    mntBtn.on('pointerout',  () => mntBtn.setFillStyle(0x0a0d1a));
+
     // Close button
     const closeAll = () => elements.forEach(e => e.destroy());
     const closeRect = add(this.add.rectangle(ox, oy + PH/2 - 30, 180, 38, 0x1a1a3a)
@@ -2284,6 +2437,149 @@ class WorldMapScene extends Phaser.Scene {
     // ESC key closes
     const escHandler = () => closeAll();
     this.input.keyboard.once('keydown-ESC', escHandler);
+  }
+
+  _showCompanionShop(W, H) {
+    const inv = GameState.player?.get('inventory');
+    const elements = [];
+    const add = o => { elements.push(o); return o; };
+    const depth = 210;
+    const PW = Math.min(480, W-40), PH = Math.min(420, H-40);
+    const closeAll = () => elements.forEach(e=>e.destroy());
+
+    add(this.add.rectangle(W/2,H/2,W,H,0,0.5).setScrollFactor(0).setDepth(depth-1).setInteractive().on('pointerdown',closeAll));
+    add(this.add.rectangle(W/2,H/2,PW,PH,0x0a0a1a,0.97).setStrokeStyle(2,0xffaa44).setScrollFactor(0).setDepth(depth));
+    add(this.add.text(W/2,H/2-PH/2+16,'⚔ COMPANIONS',{fontFamily:'"Press Start 2P"',fontSize:'10px',color:'#ffaa44'}).setOrigin(0.5,0).setScrollFactor(0).setDepth(depth));
+
+    const current = GameState.companion;
+    if (current) {
+      add(this.add.text(W/2,H/2-PH/2+38,`Active: ${current.icon} ${current.name}`,{fontFamily:'"VT323"',fontSize:'16px',color:'#44ff88'}).setOrigin(0.5,0).setScrollFactor(0).setDepth(depth));
+    }
+
+    Object.values(COMPANIONS).forEach((comp, i) => {
+      const cy = H/2-PH/2+60 + i*52;
+      const owned = current?.id === comp.id;
+      const canBuy = (inv?.gold||0) >= comp.price;
+      const bg = add(this.add.rectangle(W/2, cy+22, PW-20, 46, owned?0x112211:canBuy?0x111a2e:0x110a0a)
+        .setStrokeStyle(1, owned?0x44ff44:canBuy?0x4488ff:0x442222).setScrollFactor(0).setDepth(depth).setInteractive({useHandCursor:!owned&&canBuy}));
+      add(this.add.text(W/2-PW/2+12,cy+6,`${comp.icon} ${comp.name}`,{fontFamily:'"VT323"',fontSize:'16px',color:owned?'#44ff88':canBuy?'#aaaaff':'#664444'}).setScrollFactor(0).setDepth(depth));
+      add(this.add.text(W/2-PW/2+12,cy+24,`HP:${comp.hp} ATK:${comp.atk} DEF:${comp.def} | ${comp.desc.slice(0,40)}`,{fontFamily:'"VT323"',fontSize:'12px',color:'#666688'}).setScrollFactor(0).setDepth(depth));
+      add(this.add.text(W/2+PW/2-12,cy+14,owned?'ACTIVE':`${comp.price}💰`,{fontFamily:'"Press Start 2P"',fontSize:'7px',color:owned?'#44ff44':'#ffd700'}).setOrigin(1,0.5).setScrollFactor(0).setDepth(depth));
+      if (!owned && canBuy) {
+        bg.on('pointerdown',()=>{
+          inv.gold -= comp.price;
+          GameState.companion = comp;
+          GameState.addMessage(`${comp.icon} ${comp.name} joins your party!`,'#44ff88');
+          window.showToast(`Companion: ${comp.name} hired!`,'rare');
+          closeAll();
+        });
+        bg.on('pointerover',()=>bg.setFillStyle(0x1a2a3a));
+        bg.on('pointerout',()=>bg.setFillStyle(0x111a2e));
+      }
+    });
+
+    add(this.add.rectangle(W/2,H/2+PH/2-22,120,32,0x1a1a1a).setStrokeStyle(1,0xff4444).setScrollFactor(0).setDepth(depth).setInteractive({useHandCursor:true}).on('pointerdown',closeAll));
+    add(this.add.text(W/2,H/2+PH/2-22,'[ CLOSE ]',{fontFamily:'"Press Start 2P"',fontSize:'8px',color:'#ff4444'}).setOrigin(0.5).setScrollFactor(0).setDepth(depth+1).setInteractive({useHandCursor:true}).on('pointerdown',closeAll));
+    this.input.keyboard.once('keydown-ESC',closeAll);
+  }
+
+  _showMountShop(W, H) {
+    const inv = GameState.player?.get('inventory');
+    const elements = [];
+    const add = o => { elements.push(o); return o; };
+    const depth = 210;
+    const PW = Math.min(520, W-40), PH = Math.min(460, H-40);
+    const closeAll = () => elements.forEach(e=>e.destroy());
+
+    add(this.add.rectangle(W/2,H/2,W,H,0,0.5).setScrollFactor(0).setDepth(depth-1).setInteractive().on('pointerdown',closeAll));
+    add(this.add.rectangle(W/2,H/2,PW,PH,0x0a0a1a,0.97).setStrokeStyle(2,0x4488ff).setScrollFactor(0).setDepth(depth));
+    add(this.add.text(W/2,H/2-PH/2+16,'🐴 MOUNTS',{fontFamily:'"Press Start 2P"',fontSize:'10px',color:'#4488ff'}).setOrigin(0.5,0).setScrollFactor(0).setDepth(depth));
+
+    const current = GameState.mount;
+    if (current) add(this.add.text(W/2,H/2-PH/2+38,`Riding: ${current.icon} ${current.name}`,{fontFamily:'"VT323"',fontSize:'16px',color:'#44ff88'}).setOrigin(0.5,0).setScrollFactor(0).setDepth(depth));
+
+    Object.values(MOUNTS).forEach((mount, i) => {
+      const cy = H/2-PH/2+60+i*56;
+      const owned = current?.id===mount.id;
+      const canBuy = (inv?.gold||0)>=mount.price;
+      const bg = add(this.add.rectangle(W/2,cy+24,PW-20,50,owned?0x112211:canBuy?0x111a2e:0x110a0a)
+        .setStrokeStyle(1,owned?0x44ff44:canBuy?0x4488ff:0x442222).setScrollFactor(0).setDepth(depth).setInteractive({useHandCursor:!owned&&canBuy}));
+      add(this.add.text(W/2-PW/2+12,cy+6,`${mount.icon} ${mount.name}`,{fontFamily:'"VT323"',fontSize:'16px',color:owned?'#44ff88':canBuy?'#aaaaff':'#664444'}).setScrollFactor(0).setDepth(depth));
+      add(this.add.text(W/2-PW/2+12,cy+24,mount.desc,{fontFamily:'"VT323"',fontSize:'12px',color:'#666688'}).setScrollFactor(0).setDepth(depth));
+      add(this.add.text(W/2+PW/2-12,cy+18,owned?'RIDING':`${mount.price}💰`,{fontFamily:'"Press Start 2P"',fontSize:'7px',color:owned?'#44ff44':'#ffd700'}).setOrigin(1,0.5).setScrollFactor(0).setDepth(depth));
+      if (!owned&&canBuy) {
+        bg.on('pointerdown',()=>{
+          inv.gold -= mount.price;
+          GameState.mount = mount;
+          const st = GameState.player?.get('stats');
+          if (st) { st.atk += mount.bonusAtk; st.def += mount.bonusDef; }
+          GameState.addMessage(`${mount.icon} Now riding ${mount.name}!`,'#4488ff');
+          window.showToast(`Mount: ${mount.name} acquired!`,'rare');
+          closeAll();
+        });
+        bg.on('pointerover',()=>bg.setFillStyle(0x1a2a3a));
+        bg.on('pointerout',()=>bg.setFillStyle(0x111a2e));
+      }
+    });
+
+    add(this.add.rectangle(W/2,H/2+PH/2-22,120,32,0x1a1a1a).setStrokeStyle(1,0xff4444).setScrollFactor(0).setDepth(depth).setInteractive({useHandCursor:true}).on('pointerdown',closeAll));
+    add(this.add.text(W/2,H/2+PH/2-22,'[ CLOSE ]',{fontFamily:'"Press Start 2P"',fontSize:'8px',color:'#ff4444'}).setOrigin(0.5).setScrollFactor(0).setDepth(depth+1).setInteractive({useHandCursor:true}).on('pointerdown',closeAll));
+    this.input.keyboard.once('keydown-ESC',closeAll);
+  }
+
+  _showMarket(mkt) {
+    const W = this.scale.width, H = this.scale.height;
+    const inv = GameState.player?.get('inventory');
+    const elements = [];
+    const add = o => { elements.push(o); return o; };
+    const depth = 210;
+    const PW = Math.min(600, W-20), PH = Math.min(520, H-20);
+    const closeAll = () => elements.forEach(e=>e.destroy());
+
+    add(this.add.rectangle(W/2,H/2,W,H,0,0.6).setScrollFactor(0).setDepth(depth-1).setInteractive().on('pointerdown',closeAll));
+    add(this.add.rectangle(W/2,H/2,PW,PH,0x0a080a,0.97).setStrokeStyle(2,0xffaa44).setScrollFactor(0).setDepth(depth));
+    add(this.add.text(W/2,H/2-PH/2+12,`🛒 ${mkt.name}`,{fontFamily:'"Press Start 2P"',fontSize:'10px',color:'#ffaa44'}).setOrigin(0.5,0).setScrollFactor(0).setDepth(depth));
+    add(this.add.text(W/2,H/2-PH/2+30,'Prices fluctuate after each dungeon. Buy low, sell high!',{fontFamily:'"VT323"',fontSize:'14px',color:'#888888'}).setOrigin(0.5,0).setScrollFactor(0).setDepth(depth));
+
+    const goldTxt = add(this.add.text(W/2+PW/2-10,H/2-PH/2+12,`💰${inv?.gold||0}g`,{fontFamily:'"Press Start 2P"',fontSize:'8px',color:'#ffd700'}).setOrigin(1,0).setScrollFactor(0).setDepth(depth));
+
+    const COLS_N=3, cellW=(PW-30)/COLS_N, cellH=68;
+    MARKET_GOODS.forEach((good, i) => {
+      const col=i%COLS_N, row=Math.floor(i/COLS_N);
+      const cx=W/2-PW/2+15+col*cellW, cy=H/2-PH/2+52+row*cellH;
+      const price = MarketState.getPrice(good);
+      const trend = MarketState.getTrend(good);
+      const item  = ITEMS[good.itemId];
+      const canBuy = (inv?.gold||0)>=price;
+      const bg = add(this.add.rectangle(cx+cellW/2,cy+cellH/2,cellW-4,cellH-4,canBuy?0x111a11:0x180808)
+        .setStrokeStyle(1,canBuy?0x336633:0x442222).setScrollFactor(0).setDepth(depth).setInteractive({useHandCursor:canBuy}));
+      add(this.add.text(cx+4,cy+4,`${good.icon} ${good.name}`,{fontFamily:'"VT323"',fontSize:'14px',color:canBuy?'#ccffcc':'#664444'}).setScrollFactor(0).setDepth(depth));
+      add(this.add.text(cx+4,cy+22,item?RARITY_NAME[item.rarity]:'',{fontFamily:'"VT323"',fontSize:'11px',color:'#555577'}).setScrollFactor(0).setDepth(depth));
+      add(this.add.text(cx+4,cy+38,`${price}💰`,{fontFamily:'"Press Start 2P"',fontSize:'7px',color:'#ffd700'}).setScrollFactor(0).setDepth(depth));
+      add(this.add.text(cx+cellW-8,cy+38,`${trend.arrow}`,{fontFamily:'"Press Start 2P"',fontSize:'8px',color:trend.color}).setOrigin(1,0).setScrollFactor(0).setDepth(depth));
+      if (canBuy) {
+        bg.on('pointerover',()=>bg.setFillStyle(0x1a2e1a));
+        bg.on('pointerout',()=>bg.setFillStyle(0x111a11));
+        bg.on('pointerdown',()=>{
+          if (!inv||inv.items.length>=inv.maxSize){window.showToast('Inventory full!','warning');return;}
+          if (inv.gold<price){window.showToast('Not enough gold!','warning');return;}
+          inv.gold-=price;
+          inv.items.push({...ITEMS[good.itemId],count:1,identified:true});
+          GameState.addMessage(`Bought ${good.name} for ${price}g!`,'#44ff88');
+          goldTxt.setText(`💰${inv.gold}g`);
+          this._updateHUD();
+        });
+      }
+    });
+
+    // Fluctuate button
+    const fluctBtn = add(this.add.rectangle(W/2-60,H/2+PH/2-28,160,32,0x1a1a3a).setStrokeStyle(1,0xffaa44).setScrollFactor(0).setDepth(depth).setInteractive({useHandCursor:true}));
+    add(this.add.text(W/2-60,H/2+PH/2-28,'📈 Fluctuate Prices',{fontFamily:'"VT323"',fontSize:'15px',color:'#ffaa44'}).setOrigin(0.5).setScrollFactor(0).setDepth(depth+1).setInteractive({useHandCursor:true}));
+    fluctBtn.on('pointerdown',()=>{MarketState.fluctuate();closeAll();this._showMarket(mkt);});
+
+    add(this.add.rectangle(W/2+80,H/2+PH/2-28,120,32,0x1a1a1a).setStrokeStyle(1,0xff4444).setScrollFactor(0).setDepth(depth).setInteractive({useHandCursor:true}).on('pointerdown',closeAll));
+    add(this.add.text(W/2+80,H/2+PH/2-28,'[ CLOSE ]',{fontFamily:'"Press Start 2P"',fontSize:'8px',color:'#ff4444'}).setOrigin(0.5).setScrollFactor(0).setDepth(depth+1).setInteractive({useHandCursor:true}).on('pointerdown',closeAll));
+    this.input.keyboard.once('keydown-ESC',closeAll);
   }
 
   update() {
@@ -2453,6 +2749,58 @@ class DungeonScene extends Phaser.Scene {
 
     // Camera follow player
     this.cameras.main.startFollow(render.sprite, true, 0.1, 0.1);
+
+    // Spawn companion if player has one
+    this._spawnCompanion(fd);
+  }
+
+  _spawnCompanion(fd) {
+    // Remove old companion entity if exists
+    if (GameState.companionEntity) {
+      const cr = GameState.companionEntity.get('render');
+      if (cr) { cr.sprite?.destroy(); cr.hpBg?.destroy(); cr.hpBar?.destroy(); }
+      GameState.world.destroy(GameState.companionEntity.id);
+      GameState.companionEntity = null;
+    }
+    const compDef = GameState.companion;
+    if (!compDef) return;
+
+    // Place companion next to player start
+    const pos = GameState.player.get('pos');
+    let cx = pos.x + 1, cy = pos.y;
+    if (fd.tiles[cy]?.[cx] !== TILE_TYPE.FLOOR) { cx = pos.x - 1; }
+    if (fd.tiles[cy]?.[cx] !== TILE_TYPE.FLOOR) { cx = pos.x; cy = pos.y + 1; }
+
+    const floor = GameState.floor;
+    const scale = floorDifficultyScale(floor);
+    const e = GameState.world.create();
+    e.add(C.pos(cx, cy, floor))
+     .add(C.health(Math.round(compDef.hp * scale), Math.round(compDef.hp * scale)))
+     .add(C.stats(Math.round(compDef.atk * scale), compDef.def, 1, 0, 2))
+     .add(C.status())
+     .tag('companion').tag('actor');
+
+    // Sprite
+    const cRender = C.render(compDef.sprite || 'player', compDef.color || 0x4488ff, 29);
+    e.add(cRender);
+    cRender.sprite = this.add.image(cx*TS+TS/2, cy*TS+TS/2, compDef.sprite || 'player')
+      .setScale(SCALE).setDepth(29).setTint(compDef.color || 0x4488ff);
+    this.entityContainer.add(cRender.sprite);
+
+    // HP bar
+    const hpBg  = this.add.rectangle(cx*TS+TS/2, cy*TS+2, TS-4, 3, 0x004400).setDepth(30);
+    const hpBar = this.add.rectangle(cx*TS+2, cy*TS+2, TS-4, 3, 0x44ff44).setOrigin(0,0.5).setDepth(31);
+    cRender.hpBg = hpBg; cRender.hpBar = hpBar;
+    this.entityContainer.add(hpBg); this.entityContainer.add(hpBar);
+    cRender.maxHpBarW = TS - 4;
+
+    // Label
+    const lbl = this.add.text(cx*TS+TS/2, cy*TS-4, compDef.icon||'⚔', {fontSize:'12px'}).setOrigin(0.5,1).setDepth(32);
+    this.entityContainer.add(lbl);
+    cRender.label = lbl;
+
+    e.components.compDef = compDef;
+    GameState.companionEntity = e;
   }
 
   _spawnMonsters(fd) {
@@ -2847,17 +3195,84 @@ class DungeonScene extends Phaser.Scene {
       const ty = Math.floor(wy / TS);
       this.spellCursor.setPosition(tx*TS+TS/2, ty*TS+TS/2);
     });
+
+    // ── Touch / Mobile controls ────────────────────────────────────
+    this._buildTouchControls();
   }
 
-  _tryMove(dx, dy) {
+  _buildTouchControls() {
+    const W = this.scale.width, H = this.scale.height;
+    // Only show on touch devices or small screens
+    const isTouch = this.sys.game.device.input.touch || W < 900;
+
+    if (!isTouch) return;
+
+    const panelH = 80; // HUD height
+    const btnSize = 52;
+    const padX = 70, padY = H - panelH - 10;
+
+    const btnAlpha = 0.55;
+    const btnColor = 0x222244;
+    const arrowStyle = { fontFamily:'"VT323"', fontSize:'28px', color:'#aaaaff' };
+
+    const makeBtn = (x, y, label, action) => {
+      const btn = this.add.rectangle(x, y, btnSize, btnSize, btnColor, btnAlpha)
+        .setScrollFactor(0).setDepth(200).setStrokeStyle(1, 0x4444aa)
+        .setInteractive({ useHandCursor:true });
+      const txt = this.add.text(x, y, label, arrowStyle).setOrigin(0.5).setScrollFactor(0).setDepth(201);
+      btn.on('pointerdown', action);
+      btn.on('pointerover', () => btn.setFillStyle(0x3333aa, 0.8));
+      btn.on('pointerout',  () => btn.setFillStyle(btnColor, btnAlpha));
+      return btn;
+    };
+
+    // D-pad left side — movement
+    makeBtn(padX,        padY - btnSize,   '▲', () => this._tryMove( 0,-1));
+    makeBtn(padX,        padY,             '▼', () => this._tryMove( 0, 1));
+    makeBtn(padX - btnSize, padY - btnSize/2, '◀', () => this._tryMove(-1, 0));
+    makeBtn(padX + btnSize, padY - btnSize/2, '▶', () => this._tryMove( 1, 0));
+    makeBtn(padX,        padY - btnSize/2, '·', () => this._endPlayerTurn()); // wait
+
+    // Diagonal buttons (small)
+    makeBtn(padX - btnSize, padY - btnSize*1.5, '↖', () => this._tryMove(-1,-1));
+    makeBtn(padX + btnSize, padY - btnSize*1.5, '↗', () => this._tryMove( 1,-1));
+    makeBtn(padX - btnSize, padY + btnSize*0.5, '↙', () => this._tryMove(-1, 1));
+    makeBtn(padX + btnSize, padY + btnSize*0.5, '↘', () => this._tryMove( 1, 1));
+
+    // Action buttons right side
+    const ax = W - 70, ay = padY - btnSize/2;
+    makeBtn(ax,            ay - btnSize,   'I',  () => { InventoryScene._page='inventory'; this.scene.launch('Inventory'); });
+    makeBtn(ax - btnSize,  ay - btnSize,   'T',  () => this.scene.launch('SkillTree'));
+    makeBtn(ax,            ay,             'G',  () => this._pickupItem());
+    makeBtn(ax - btnSize,  ay,             'E',  () => this._useStairs());
+    makeBtn(ax - btnSize/2, ay - btnSize*2,'F',  () => {
+      const skills = GameState.player?.get('skills');
+      const known  = (skills?.known||[]).filter(s=>SPELLS[s.id]);
+      if (known.length > 0) {
+        GameState.selectedSpell = known[0].id;
+        GameState.targeting = true;
+        this.spellCursor.setVisible(true);
+        GameState.addMessage(`Targeting ${SPELLS[known[0].id]?.name}. Tap target.`, '#aaaaff');
+      }
+    });
+
+    // Mount icon display
+    if (GameState.mount) {
+      this.add.text(W/2, H - panelH - 30, `${GameState.mount.icon} ${GameState.mount.name}`,
+        {fontFamily:'"VT323"',fontSize:'13px',color:'#4488ff'}).setOrigin(0.5).setScrollFactor(0).setDepth(200);
+    }
+  }
+
+  _tryMove(dx, dy, _stepN = 0) {
     const p = GameState.player;
     if (!p) return;
     const pos = p.get('pos');
     const nx = pos.x + dx, ny = pos.y + dy;
     if (nx<0||nx>=COLS||ny<0||ny>=ROWS) return;
 
-    const fd = GameState.floorData;
+    const fd  = GameState.floorData;
     const tile = fd.tiles[ny][nx];
+    const mount = GameState.mount;
 
     // Check for monsters at target
     const monsters = GameState.world.queryTag('monster');
@@ -2867,8 +3282,11 @@ class DungeonScene extends Phaser.Scene {
       return;
     }
 
-    // Check passability
-    if (tile === TILE_TYPE.WALL) return;
+    // Passability — respect mount bonuses
+    if (tile === TILE_TYPE.WALL && !(mount?.wallWalk)) return;
+    if (tile === TILE_TYPE.LAVA && !(mount?.lavaImmune)) {
+      // still allow stepping but hurt them (unless immune)
+    }
 
     // Move player
     pos.x = nx; pos.y = ny;
@@ -2881,38 +3299,51 @@ class DungeonScene extends Phaser.Scene {
       });
     }
 
-    // Check tile effects
-    this._checkTileInteraction(nx, ny, fd);
+    // Tile effects — skip traps if mount is trap-immune
+    this._checkTileInteraction(nx, ny, fd, mount);
+
+    // Mount multi-step: move extra tiles per turn
+    const stepsPerTurn = mount?.stepsPerTurn || 1;
+    if (_stepN + 1 < stepsPerTurn) {
+      // Move one more step in the same direction (don't end turn yet)
+      this._tryMove(dx, dy, _stepN + 1);
+      return;
+    }
 
     this._endPlayerTurn();
   }
 
-  _checkTileInteraction(x, y, fd) {
+  _checkTileInteraction(x, y, fd, mount = null) {
     const p = GameState.player;
     const tile = fd.tiles[y][x];
 
-    // Traps
-    const trap = fd.traps.find(t => t.x===x && t.y===y && !t.triggered);
-    if (trap) {
-      trap.triggered = true;
-      const dmg = trap.damage;
-      applyDamage(p, dmg);
-      GameState.addMessage(`⚠ Triggered a trap! -${dmg} HP!`, '#ff4444');
-      this._showDamageNumber(x, y, dmg, '#ff4444');
-      // Reveal trap sprite
-      if (this.tileSprites[y][x]) this.tileSprites[y][x].setTexture('tile_trap');
+    // Traps — skip if mount is trap-immune
+    if (!mount?.trapImmune) {
+      const trap = fd.traps.find(t => t.x===x && t.y===y && !t.triggered);
+      if (trap) {
+        trap.triggered = true;
+        const dmg = trap.damage;
+        applyDamage(p, dmg);
+        GameState.addMessage(`⚠ Triggered a trap! -${dmg} HP!`, '#ff4444');
+        this._showDamageNumber(x, y, dmg, '#ff4444');
+        if (this.tileSprites[y][x]) this.tileSprites[y][x].setTexture('tile_trap');
+      }
+    } else {
+      // Silently disable trap even if immune
+      const trap = fd.traps.find(t => t.x===x && t.y===y && !t.triggered);
+      if (trap) trap.triggered = true;
     }
 
-    // Lava
-    if (tile === TILE_TYPE.LAVA) {
+    // Lava — skip damage if mount is lava-immune
+    if (tile === TILE_TYPE.LAVA && !mount?.lavaImmune) {
       applyDamage(p, 5);
       applyStatus(p, 'burn');
-      GameState.addMessage(`🔥 You step on lava! -5 HP!`, '#ff4400');
+      GameState.addMessage('🔥 You step on lava! -5 HP!', '#ff4400');
       this._showDamageNumber(x, y, 5, '#ff4400');
     }
 
-    // Water (slow)
-    if (tile === TILE_TYPE.WATER) {
+    // Water
+    if (tile === TILE_TYPE.WATER && !mount?.waterWalk) {
       GameState.addMessage('Wading through water...', '#4488ff');
     }
 
@@ -3060,6 +3491,12 @@ class DungeonScene extends Phaser.Scene {
       this._checkLevelUp(st);
     }
 
+    // Market prices fluctuate after boss kills
+    if (monster.hasTag('boss')) {
+      MarketState.fluctuate();
+      GameState.addMessage('📈 Market prices have shifted!', '#ffaa44');
+    }
+
     // Death effect
     const render = monster.get('render');
     if (render?.sprite) {
@@ -3168,14 +3605,22 @@ class DungeonScene extends Phaser.Scene {
   }
 
   _cleanupForRestart() {
-    // Nullify player sprite so create() rebuilds it fresh
+    // Null player sprite refs
     const pr = GameState.player?.get('render');
     if (pr) { pr.sprite = null; pr.hpBg = null; pr.hpBar = null; }
+
+    // Clean companion
+    if (GameState.companionEntity) {
+      const cr = GameState.companionEntity.get('render');
+      if (cr) { cr.sprite = null; cr.hpBg = null; cr.hpBar = null; cr.label = null; }
+      GameState.world.destroy(GameState.companionEntity.id);
+      GameState.companionEntity = null;
+    }
+
     // Remove all monster entities from ECS so _spawnMonsters starts clean
     const monsters = GameState.world.queryTag('monster');
     for (const m of monsters) {
       const r = m.get('render');
-      // Don't call destroy() on Phaser objects — scene teardown handles it
       if (r) { r.sprite = null; r.hpBg = null; r.hpBar = null; }
       GameState.world.destroy(m.id);
     }
@@ -3348,6 +3793,7 @@ class DungeonScene extends Phaser.Scene {
   _endPlayerTurn() {
     GameState.turnCount++;
     this._processStatusEffects(GameState.player);
+    this._processCompanionAI();
     this._processMonstersAI();
     this._updateFOV();
     this._updateHUD();
@@ -3362,6 +3808,102 @@ class DungeonScene extends Phaser.Scene {
       const skills = p.get('skills');
       if (skills?.known.find(s=>s.id==='mana_well')) {
         st.mp = Math.min(st.maxMp||30, (st.mp||0) + 3);
+      }
+    }
+  }
+
+  _processCompanionAI() {
+    const ce = GameState.companionEntity;
+    if (!ce) return;
+    const ch = ce.get('health');
+    if (!ch || ch.hp <= 0) {
+      // Companion died
+      const cr = ce.get('render');
+      cr?.sprite?.destroy(); cr?.hpBg?.destroy(); cr?.hpBar?.destroy(); cr?.label?.destroy();
+      GameState.world.destroy(ce.id);
+      GameState.companionEntity = null;
+      GameState.addMessage(`Your companion has fallen! 😢`, '#ff4444');
+      return;
+    }
+
+    const cPos  = ce.get('pos');
+    const pPos  = GameState.player.get('pos');
+    const compDef = ce.components.compDef;
+    const range   = compDef?.range || 1;
+    const monsters = GameState.world.queryTag('monster');
+
+    // Find nearest visible monster within attack range
+    const fov = GameState.player.get('fov');
+    let nearest = null, nearestDist = Infinity;
+    for (const m of monsters) {
+      const mp = m.get('pos');
+      if (!mp) continue;
+      const dist = Math.abs(mp.x - cPos.x) + Math.abs(mp.y - cPos.y);
+      const visible = fov?.visible.has(`${mp.x},${mp.y}`);
+      if (visible && dist < nearestDist) { nearest = m; nearestDist = dist; }
+    }
+
+    if (nearest) {
+      const mp = nearest.get('pos');
+      if (nearestDist <= range) {
+        // Attack!
+        const cSt = ce.get('stats');
+        const mSt = nearest.get('stats');
+        const mHp = nearest.get('health');
+        if (!mHp || !mSt) return;
+        const dmg = Math.max(1, (cSt?.atk||8) - (mSt?.def||0) + Math.floor(Math.random()*4-2));
+        applyDamage(nearest, dmg);
+        this._showDamageNumber(mp.x, mp.y, dmg, '#aaffaa');
+        if (mHp.hp <= 0) {
+          const mr = nearest.get('render');
+          mr?.sprite?.destroy(); mr?.hpBg?.destroy(); mr?.hpBar?.destroy();
+          GameState.world.destroy(nearest.id);
+          GameState.floorData.monsters = GameState.floorData.monsters.filter(id => id !== nearest.id);
+          GameState.addMessage(`${compDef?.icon||'⚔'} Companion slays the ${nearest.components.monsterDef?.name||'enemy'}!`, '#aaffaa');
+        }
+        // Mage companion: cast fireball every 3 turns
+        if (compDef?.aiType === 'mage' && GameState.turnCount % 3 === 0) {
+          GameState.addMessage(`${compDef.icon} Companion casts Fireball!`, '#ff8844');
+        }
+        // Paladin heals every 5 turns
+        if (compDef?.aiType === 'paladin' && GameState.turnCount % 5 === 0) {
+          const healed = applyHeal(GameState.player, 15);
+          GameState.addMessage(`${compDef.icon} Companion heals you for +${healed} HP!`, '#44ff88');
+        }
+      } else {
+        // Move toward nearest monster
+        const fd = GameState.floorData;
+        const path = astar(fd.tiles, cPos.x, cPos.y, mp.x, mp.y,
+          (x,y) => fd.tiles[y]?.[x] !== undefined && fd.tiles[y][x] !== TILE_TYPE.WALL, 15);
+        if (path && path.length > 1) {
+          cPos.x = path[1].x; cPos.y = path[1].y;
+        }
+      }
+    } else {
+      // Follow player if far
+      const dist = Math.abs(cPos.x - pPos.x) + Math.abs(cPos.y - pPos.y);
+      if (dist > 3) {
+        const fd = GameState.floorData;
+        const path = astar(fd.tiles, cPos.x, cPos.y, pPos.x, pPos.y,
+          (x,y) => fd.tiles[y]?.[x] !== undefined && fd.tiles[y][x] !== TILE_TYPE.WALL, 15);
+        if (path && path.length > 1) {
+          cPos.x = path[1].x; cPos.y = path[1].y;
+        }
+      }
+    }
+
+    // Update companion sprite position
+    const cr = ce.get('render');
+    if (cr?.sprite) {
+      this.tweens.add({ targets: cr.sprite, x: cPos.x*TS+TS/2, y: cPos.y*TS+TS/2, duration:120, ease:'Linear' });
+      if (cr.hpBg)  cr.hpBg.setPosition(cPos.x*TS+TS/2, cPos.y*TS+2);
+      if (cr.label) cr.label.setPosition(cPos.x*TS+TS/2, cPos.y*TS-4);
+      // HP bar scale
+      const ratio = ch.hp / ch.maxHp;
+      if (cr.hpBar) {
+        cr.hpBar.setPosition(cPos.x*TS+2, cPos.y*TS+2);
+        cr.hpBar.setScale(ratio, 1);
+        cr.hpBar.setFillStyle(ratio > 0.5 ? 0x44ff44 : ratio > 0.25 ? 0xffaa00 : 0xff4444);
       }
     }
   }

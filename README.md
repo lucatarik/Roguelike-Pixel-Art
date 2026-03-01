@@ -1,6 +1,6 @@
 # 💃 Melissa's Wrath: Endless Descent
 
-> *"She danced through the dark, and the dark learned to fear her."*
+> *"She carries his name in her chest like a coal that will not go cold. That is why the dark has not taken her yet."*
 
 ---
 
@@ -36,17 +36,51 @@ These temples went dark. Their doors closed. The world forgot them.
 
 In the halls of Asgard's outermost edge, where the Valkyries train in preparation for wars that have not yet happened, one warrior stirred from a vision that was not a dream.
 
-**Melissa** — youngest of the Valkyrie order, dancer as much as warrior, known for fighting with a grace that made enemies hesitate just long enough to be defeated — saw Amara's face in the moment of her imprisonment. Felt the severing like a wound in her own chest. Woke screaming.
+**Melissa** — youngest of the Valkyrie order, fierce and relentless in combat, known for fighting with a fury that left no room for hesitation — saw Amara's face in the moment of her imprisonment. Felt the severing like a wound in her own chest. Woke with a name on her lips. Not Amara's name.
 
-The other Valkyries felt nothing. They had already begun to go cold.
+His.
 
-Melissa alone retained the memory of love — perhaps because she had never stopped dancing, and dance, unlike war, requires you to *feel* the music. She descended to the mortal realm with a single purpose: find the seven Shinre temples scattered across a world that no longer cared about anything, recover the Seven Relics that hold the fragments of Amara's essence, and bring them to the Shattered Throne to break Valdris's seal.
+The other Valkyries felt nothing when the Goddess was taken. They had already begun to go cold, their hearts sealed away by centuries of war and discipline. But Melissa had done something the order did not sanction, did not understand, and could not undo: she had fallen, completely and irreversibly, in love with a mortal Hero.
 
-She will fight through an endless labyrinth of corrupted dungeons. She will face monsters twisted by the absence of love into things that only know hunger and hatred. She will collect companions and mounts, buy weapons in markets where the prices fluctuate with the chaos of a loveless economy, and descend deeper and deeper into a world rotting from the inside.
+**His name is spoken only in her heart.** A warrior of the lower realm, whose courage she had watched from the sky during a battle she was not supposed to care about, whose laugh she had memorized from a distance, whose face she saw every time she closed her eyes. She had never spoken to him. She did not need to. Love, when it is real, does not wait for permission.
 
-And she will dance through all of it.
+It was this love — private, burning, and utterly human in its ache — that shielded her mind when Amara's essence was torn away. While every other being in existence forgot the meaning of feeling, Melissa *held on*. Because she could not imagine a world in which she stopped wanting to be near him. Because the thought of him turning cold, looking at the people he loved and feeling nothing, was more unbearable than any wound.
 
-Because that is how Melissa fights. And that is how love survives.
+She descended to the mortal realm carrying two things: her spear, and his memory.
+
+### The Mission — and the Promise
+
+Melissa's purpose is clear: find the seven Shinre temples scattered across a world that no longer cares about anything, recover the Seven Relics that hold the fragments of Amara's imprisoned essence, and carry them to the Shattered Throne to break Valdris's seal. Free Amara. Restore love to the world.
+
+But beneath that noble mission lives a smaller, more personal truth that Melissa does not speak aloud.
+
+She knows that Amara, the Goddess of Love, is not merely a cosmic force. She is the power that *makes love take root permanently* — that transforms fleeting feeling into something unbreakable, something that endures seasons and silence and distance and doubt. Without Amara, love can exist — Melissa's own stubborn, impossible feeling proves that — but it cannot be *anchored*. It flickers. It is vulnerable to time and fear and the slow erosion of living.
+
+With Amara restored, love becomes *eternal*.
+
+And Melissa intends to be standing in front of him when that happens.
+
+She does not know if he loves her. She does not know if he will. She is a Valkyrie: divine, terrible, made of lightning and war. He is a mortal man who has never looked up at the sky and seen her watching. The odds are, by any reasonable measure, catastrophic.
+
+But Melissa has fought through dungeons full of things that should have killed her. She has faced Dragons and Liches and horrors that do not have names. She has done all of it carrying one single impossible hope in her chest like a burning coal that nothing has managed to extinguish.
+
+She is going to free Amara.
+
+And then she is going to be loved back.
+
+### The Enemy
+
+**Valdris the Hollow** was not always hollow. There was a time — centuries ago, in another age — when he was a man who felt everything too much. He loved a woman so completely that when she left him, not cruelly but simply, the way people leave when their paths no longer run the same direction, something in him cracked and never healed.
+
+He did not mourn. He *studied*. He spent two hundred years learning every secret of arcane metaphysics, every forbidden theory of divine structure, until he understood exactly what Amara was and exactly how to take her apart. He did not want to destroy love. That would have been mercy. He wanted to *remove* it — surgically, permanently — so that no one would ever again be capable of feeling the thing that had ruined him.
+
+He sits now in the Shattered Throne at the center of the earth, surrounded by the corrupted remnants of Amara's power, tending to his machinery of despair. He is not evil in the way of monsters. He is evil in the way of a wound that was never treated: festering, comprehensive, and absolutely convinced that what it is doing is correct.
+
+He will not give up the Goddess.
+
+He has already decided that the world is better this way.
+
+Melissa is going to prove him wrong.
 
 ---
 
@@ -565,8 +599,8 @@ For offline play, download Phaser 3 locally and update the `<script>` tag in `in
 
 **Melissa's Wrath: Endless Descent** was built as a solo project using Phaser 3. All procedural art generated at runtime. Story and game design original.
 
-*"She danced through the dark, and love returned to the world."*
+*"She carries his name in her chest like a coal that will not go cold. She freed a Goddess and loved a mortal, and somehow both of those things were equally impossible. She did them anyway."*
 
 ---
 
-*💃 Melissa will dance again.*
+*💃 Melissa will fight again. And this time, he will know her name.*

@@ -1,88 +1,55 @@
 # 💃 Melissa's Wrath: Endless Descent
 
-> *"She carries his name in her chest like a coal that will not go cold. That is why the dark has not taken her yet."*
+> *"She knows why she is fighting. She is not ready to say it out loud."*
 
 ---
 
-## 🌌 The Story — Lore & Narrative
+## 🌌 The Story
 
-### The World Before
+### A Love That Was
 
-In the age before memory, the realm of Vaeloria flourished under the gentle watch of **Amara**, the Goddess of Love — an eternal, radiant divinity who breathed warmth into every living creature. Lovers found each other across impossible distances. Enemies laid down arms and wept. Children laughed without knowing why. The world *felt*, and that feeling was sacred.
+There was a world where love was permanent.
 
-Amara did not rule. She did not demand temples or sacrifice. She simply *was* — a presence woven into the air like the scent of rain before a storm. People forgot she was there, the way you forget to notice your own heartbeat. That was her greatest gift: love so natural it felt like breathing.
+Not eternal in the way of myths or promises — permanent in the way of something *woven in*, like a thread through fabric, impossible to pull out without unraveling everything around it. **Amara**, Goddess of Love, made it so. Under her watch, what two people built together did not erode with time or silence or fear. It held.
 
-### The Corruption
+**Melissa** knew this. She was a Valkyrie — made of war, not tenderness — and yet she loved her **Hero** completely, and he loved her back, and she had never once doubted that it would last.
 
-But love, to those who have never felt it, looks like weakness.
+Then Amara was taken.
 
-**Valdris the Hollow** — once a high arcanist of the Council of Nine, once a man who loved deeply and was abandoned in the cruelest way — spent three centuries constructing a ritual to sever Amara from the mortal plane. Not to kill her. To *imprison* her. To take from the world the one thing he believed had destroyed him.
+### The Hollowing
 
-On the night of the Bleeding Moon, Valdris succeeded.
+No army. No warning. One night, a figure of impossible power performed a ritual in the dark, and **Amara vanished** from the fabric of existence.
 
-He tore Amara from the fabric of existence and sealed her within the **Shattered Throne** — a fortress of black iron and corrupted magic built at the intersection of seven ley lines, deep beneath the earth where no light has ever reached. The screams of the world when love vanished lasted three days. Then came the silence.
+The world did not end. It did something quieter and more terrible: it continued. But the permanent threads began to loosen. Love did not disappear — it faded, slowly, the way warmth fades when you cannot find the source of cold. People who had been certain of each other began to feel a distance they could not name or close.
 
-Within a month, wars broke out across every kingdom. Parents grew cold toward their children. Old friendships curdled into suspicion and resentment. Artists could no longer create. Music became noise. Lovers looked at each other and felt nothing — nothing at all.
+Melissa felt it too.
 
-The world did not die. It did something worse: it continued, hollow and gray, having forgotten what it had lost.
+She does not speak about what those days were like. She descended to the mortal realm instead.
 
-### The Seven Fragments
+### Seven Temples. Seven Relics. One Reason.
 
-When Valdris imprisoned Amara, her essence shattered across seven planes of emotion — the **Seven Needs**: the desire to be Chosen, to be Respected, to be Listened to, to be Reassured, to be Treated as Equal, to be Seen, and to be Protected without harm. Each fragment crystallized into a **Relic**, sealed inside a sacred temple called a **Shinre** — built by the last faithful servants of Amara before they too lost the will to go on.
+Scattered across a world that no longer knows what it has lost are seven sacred temples — the **Shinre**. Each one holds a fragment of Amara's shattered essence in the form of a **Relic**. Each one is sealed behind five floors of corrupted guardians. Each one, when cleared, returns something to the world — and something to Melissa — that should never have been taken.
 
-These temples went dark. Their doors closed. The world forgot them.
+What exactly each temple represents, and why those seven things in particular, is something Melissa understands better with every step she descends.
 
-### Melissa — The Last Valkyrie
-
-In the halls of Asgard's outermost edge, where the Valkyries train in preparation for wars that have not yet happened, one warrior stirred from a vision that was not a dream.
-
-**Melissa** — youngest of the Valkyrie order, fierce and relentless in combat, known for fighting with a fury that left no room for hesitation — saw Amara's face in the moment of her imprisonment. Felt the severing like a wound in her own chest. Woke with a name on her lips. Not Amara's name.
-
-His.
-
-The other Valkyries felt nothing when the Goddess was taken. They had already begun to go cold, their hearts sealed away by centuries of war and discipline. But Melissa had done something the order did not sanction, did not understand, and could not undo: she had fallen, completely and irreversibly, in love with a mortal Hero.
-
-**His name is spoken only in her heart.** A warrior of the lower realm, whose courage she had watched from the sky during a battle she was not supposed to care about, whose laugh she had memorized from a distance, whose face she saw every time she closed her eyes. She had never spoken to him. She did not need to. Love, when it is real, does not wait for permission.
-
-It was this love — private, burning, and utterly human in its ache — that shielded her mind when Amara's essence was torn away. While every other being in existence forgot the meaning of feeling, Melissa *held on*. Because she could not imagine a world in which she stopped wanting to be near him. Because the thought of him turning cold, looking at the people he loved and feeling nothing, was more unbearable than any wound.
-
-She descended to the mortal realm carrying two things: her spear, and his memory.
-
-### The Mission — and the Promise
-
-Melissa's purpose is clear: find the seven Shinre temples scattered across a world that no longer cares about anything, recover the Seven Relics that hold the fragments of Amara's imprisoned essence, and carry them to the Shattered Throne to break Valdris's seal. Free Amara. Restore love to the world.
-
-But beneath that noble mission lives a smaller, more personal truth that Melissa does not speak aloud.
-
-She knows that Amara, the Goddess of Love, is not merely a cosmic force. She is the power that *makes love take root permanently* — that transforms fleeting feeling into something unbreakable, something that endures seasons and silence and distance and doubt. Without Amara, love can exist — Melissa's own stubborn, impossible feeling proves that — but it cannot be *anchored*. It flickers. It is vulnerable to time and fear and the slow erosion of living.
-
-With Amara restored, love becomes *eternal*.
-
-And Melissa intends to be standing in front of him when that happens.
-
-She does not know if he loves her. She does not know if he will. She is a Valkyrie: divine, terrible, made of lightning and war. He is a mortal man who has never looked up at the sky and seen her watching. The odds are, by any reasonable measure, catastrophic.
-
-But Melissa has fought through dungeons full of things that should have killed her. She has faced Dragons and Liches and horrors that do not have names. She has done all of it carrying one single impossible hope in her chest like a burning coal that nothing has managed to extinguish.
-
-She is going to free Amara.
-
-And then she is going to be loved back.
+She is not ready to explain it to anyone else yet.
 
 ### The Enemy
 
-**Valdris the Hollow** was not always hollow. There was a time — centuries ago, in another age — when he was a man who felt everything too much. He loved a woman so completely that when she left him, not cruelly but simply, the way people leave when their paths no longer run the same direction, something in him cracked and never healed.
+**Valdris the Hollow** sits at the center of the earth, in a fortress called the **Shattered Throne**, surrounded by the machinery of a grief too old and too specific to be accidental.
 
-He did not mourn. He *studied*. He spent two hundred years learning every secret of arcane metaphysics, every forbidden theory of divine structure, until he understood exactly what Amara was and exactly how to take her apart. He did not want to destroy love. That would have been mercy. He wanted to *remove* it — surgically, permanently — so that no one would ever again be capable of feeling the thing that had ruined him.
+He is not what he appears to be.
 
-He sits now in the Shattered Throne at the center of the earth, surrounded by the corrupted remnants of Amara's power, tending to his machinery of despair. He is not evil in the way of monsters. He is evil in the way of a wound that was never treated: festering, comprehensive, and absolutely convinced that what it is doing is correct.
+The truth of who he is, and why he did this, will not reveal itself until Melissa is standing in front of him at the end. When it does, it will not be simple. It will not be the story she expected to find herself inside.
 
-He will not give up the Goddess.
-
-He has already decided that the world is better this way.
-
-Melissa is going to prove him wrong.
+It never is.
 
 ---
+
+> *The seven temples are waiting. Each one holds something Melissa needs. She is not yet certain which is the need and which is the weapon — but she is going in anyway. That is, after all, what she does.*
+
+---
+
 
 ## 🎮 Game Overview
 
@@ -347,53 +314,29 @@ After 1 dungeon: 13%. After 3: 29%. After 7: 61%. After 9: 77% (capped at 70%).
 
 ### The Seven Shinre
 
-#### 1️⃣ Being Chosen
-**Temple:** The Temple of the Sole Crown  
-**Relic:** 👑 The Singular Diadem  
-*"A single crown. A single path. A single Valkyrie."*  
-**Effect:** Melissa gains +25% ATK when she has no active companion. Standing alone is not a weakness — it is a choice.
+Each Shinre is named for something. The names are simple — ordinary, almost. The kind of words that should not be powerful enough to seal a goddess's essence inside a temple of stone and shadow. And yet.
 
-#### 2️⃣ Being Respected
-**Temple:** The Temple of Unbroken Oaths  
-**Relic:** 🤝 Seal of the Honored Name  
-*"Honor is not won in the strike. It is won in the waiting."*  
-**Effect:** After 5 consecutive turns without taking damage, an **Honor Shield** activates that absorbs the next incoming hit entirely, no matter the damage.
+Melissa does not understand, the first time she reads them, why these seven things. She understands better after the first temple. Better still after the second. By the seventh, she will not need anyone to explain it to her.
 
-#### 3️⃣ Being Listened To
-**Temple:** The Whispering Sanctum  
-**Relic:** 👂 Echo of the True Voice  
-*"She whispered once. The dungeon held its breath."*  
-**Effect:** Reveals all secret rooms on every floor. The first attack of each combat encounter deals no damage to Melissa — the enemy's intent is telegraphed before the blow lands.
-
-#### 4️⃣ Being Reassured
-**Temple:** The Temple of Steadfast Light  
-**Relic:** 🕯 Lantern of Steady Flame  
-*"The flame does not ask for gratitude. It simply stays."*  
-**Effect:** Regenerate **+2 HP per turn** whenever Melissa is not in active combat. The regen stops when an enemy comes within 5 tiles and resumes when the area is clear.
-
-#### 5️⃣ Being Treated as Equal
-**Temple:** The Twin Throne Chamber  
-**Relic:** ⚖ Crown of Equal Sovereignty  
-*"Power shared is power multiplied. Power hoarded rots."*  
-**Effect:** Each attack raises Melissa's vulnerability by 2%. Each turn she does not attack, vulnerability drops by 4%. The system creates a dynamic rhythm — burst then breathe, strike then still.
-
-#### 6️⃣ Being Seen
-**Temple:** The Hall of True Sight  
-**Relic:** 👁 Gem of Unveiled Presence  
-*"She did not demand to be noticed. She simply refused to be invisible."*  
-**Effect:** All invisible and hidden enemies are permanently revealed. Critical hit chance increases by **+40% against marked targets**. Enemies that have been attacked once remain marked for the rest of combat.
-
-#### 7️⃣ Being Protected, Not Hurt
-**Temple:** The Bastion of Sacred Guard  
-**Relic:** 🛡 Aegis of the Untouched Queen  
-*"Protection is not possession. It is the choice to keep someone whole."*  
-**Effect:** A magical shield carrying **15 HP** of absorption regenerates automatically after Melissa spends 4 consecutive turns without attacking. Recharges indefinitely.
+| # | Temple | Relic | Gameplay Effect |
+|---|--------|-------|-----------------|
+| 1️⃣ | 👑 The Temple of the Sole Crown | The Singular Diadem | +25% ATK when no companion is active |
+| 2️⃣ | 🤝 The Temple of Unbroken Oaths | Seal of the Honored Name | After 5 turns unhurt: absorb the next hit entirely |
+| 3️⃣ | 👂 The Whispering Sanctum | Echo of the True Voice | Reveal all secrets; first enemy strike each fight deals no damage |
+| 4️⃣ | 🕯 The Temple of Steadfast Light | Lantern of Steady Flame | +2 HP regen per turn outside combat |
+| 5️⃣ | ⚖ The Twin Throne Chamber | Crown of Equal Sovereignty | Dynamic balance: burst then breathe, or pay in vulnerability |
+| 6️⃣ | 👁 The Hall of True Sight | Gem of Unveiled Presence | All hidden enemies revealed; +40% crit on marked targets |
+| 7️⃣ | 🛡 The Bastion of Sacred Guard | Aegis of the Untouched Queen | 15 HP shield that recharges after 4 non-attack turns |
 
 ### The Final Castle
 
-When all seven Shinre are completed and all seven Relics collected, **The Shattered Throne** materializes somewhere on the world map. This is Valdris's fortress — 10 floors of his most powerful corrupted servants, culminating in a confrontation with the **Lich King** (his avatar) and ultimately Valdris himself.
+When all seven Shinre are completed and all seven Relics collected, something appears on the world map that was not there before.
 
-Defeating him frees Amara. The world remembers how to feel.
+**The Shattered Throne.** 🏰
+
+Ten floors. The deepest dungeon in Vaeloria. Valdris at the bottom.
+
+What happens there is not described here. It is not a secret worth keeping from you — it is a secret worth *earning*.
 
 ---
 
@@ -599,8 +542,8 @@ For offline play, download Phaser 3 locally and update the `<script>` tag in `in
 
 **Melissa's Wrath: Endless Descent** was built as a solo project using Phaser 3. All procedural art generated at runtime. Story and game design original.
 
-*"She carries his name in her chest like a coal that will not go cold. She freed a Goddess and loved a mortal, and somehow both of those things were equally impossible. She did them anyway."*
+*"She knows the answer. It lives in her chest like a heartbeat. She will not say it here — you have to earn it, the same way she did."*
 
 ---
 
-*💃 Melissa will fight again. And this time, he will know her name.*
+*💃 Seven temples. Seven relics. One reason she will not stop.*

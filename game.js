@@ -2252,24 +2252,40 @@ class WorldMapScene extends Phaser.Scene {
 
     // Player marker
     const ppos = GameState.player.get('pos');
-    this.playerMarker = this.add.image(ppos.x*tileSize, ppos.y*tileSize, 'world_player')
-      .setScale(this.tileScale).setOrigin(0);
+    this.tileSize = tileSize; // store for update()
+    this.playerMarker = this.add.image(
+      ppos.x*tileSize + tileSize/2,
+      ppos.y*tileSize + tileSize/2,
+      'world_player'
+    ).setScale(this.tileScale).setDepth(20);
     this.mapContainer.add(this.playerMarker);
 
-    // Camera follow
+    // Camera follows player sprite
     const mapW = WORLD_COLS * tileSize;
     const mapH = WORLD_ROWS * tileSize;
     this.cameras.main.setBounds(0, 0, mapW, mapH);
     this.cameras.main.setZoom(1);
+    this.cameras.main.startFollow(this.playerMarker, true, 0.12, 0.12);
 
-    // Center on player
-    this.cameras.main.centerOn(ppos.x*tileSize + tileSize/2, ppos.y*tileSize + tileSize/2);
-    // Drag to pan
-    this.input.on('pointermove', pointer => {
-      if (pointer.isDown) {
-        this.cameras.main.scrollX -= pointer.velocity.x / 2;
-        this.cameras.main.scrollY -= pointer.velocity.y / 2;
-      }
+    // World map monsters
+    this.worldMonsters = [];
+    this._spawnWorldMonsters();
+
+    // World map turn cooldown (ms between steps when key held)
+    this._worldStepCooldown = 0;
+    this._worldMoving = false;
+
+    // Keyboard movement
+    this.input.keyboard.on('keydown', ev => {
+      if (this.scene.isActive('Inventory') || this.scene.isActive('SkillTree')) return;
+      const DIR_MAP = {
+        ArrowUp:'U', KeyW:'U', ArrowDown:'D', KeyS:'D',
+        ArrowLeft:'L', KeyA:'L', ArrowRight:'R', KeyD:'R',
+        Numpad8:'U', Numpad2:'D', Numpad4:'L', Numpad6:'R',
+        Numpad7:'UL', Numpad9:'UR', Numpad1:'DL', Numpad3:'DR',
+      };
+      const dir = DIR_MAP[ev.code];
+      if (dir) { ev.stopPropagation(); this._worldStep(dir); }
     });
 
     // HUD overlay
@@ -2652,6 +2668,198 @@ class WorldMapScene extends Phaser.Scene {
     this.input.keyboard.once('keydown-ESC',closeAll);
   }
 
+  // ─────────────────────────────────────────
+  // WORLD MAP MOVEMENT
+  // ─────────────────────────────────────────
+  _worldStep(dir) {
+    const DIRS = {
+      U:{dx:0,dy:-1}, D:{dx:0,dy:1}, L:{dx:-1,dy:0}, R:{dx:1,dy:0},
+      UL:{dx:-1,dy:-1}, UR:{dx:1,dy:-1}, DL:{dx:-1,dy:1}, DR:{dx:1,dy:1},
+    };
+    const d = DIRS[dir]; if (!d) return;
+    const p    = GameState.player;
+    const pos  = p.get('pos');
+    const nx   = pos.x + d.dx, ny = pos.y + d.dy;
+    const wm   = GameState.worldMap;
+    if (nx < 0 || nx >= WORLD_COLS || ny < 0 || ny >= WORLD_ROWS) return;
+    const tile = wm.tiles[ny][nx];
+    // Block ocean tiles
+    if (tile.biome === BIOME.OCEAN && !(GameState.mount?.waterWalk)) return;
+
+    pos.x = nx; pos.y = ny;
+    const ts = this.tileSize;
+    this.tweens.add({
+      targets: this.playerMarker,
+      x: nx*ts + ts/2, y: ny*ts + ts/2,
+      duration: 100, ease: 'Linear',
+    });
+
+    // Proximity interactions
+    this._checkWorldInteractions(nx, ny, wm);
+
+    // Tick world monsters every step
+    this._processWorldMonsters();
+    this._updateHUD();
+  }
+
+  _checkWorldInteractions(x, y, wm) {
+    const PROX = 1; // tiles of proximity to trigger
+    const dist = (a,b) => Math.abs(a.x-x) + Math.abs(a.y-y);
+
+    // Auto-enter dungeon if stepping onto it
+    for (const dng of wm.dungeons) {
+      if (dng.x === x && dng.y === y) { this.enterDungeon(dng); return; }
+    }
+    // Auto-visit town if stepping onto it
+    for (const town of wm.towns) {
+      if (town.x === x && town.y === y) { this.visitTown(town); return; }
+    }
+    // Market proximity
+    for (const mkt of (wm.markets||[])) {
+      if (mkt.x === x && mkt.y === y) { this._showMarket(mkt); return; }
+    }
+    // Stable proximity
+    for (const st of (wm.stables||[])) {
+      if (st.x === x && st.y === y) { this._showMountShop(this.scale.width, this.scale.height); return; }
+    }
+    // Camp proximity
+    for (const cp of (wm.camps||[])) {
+      if (cp.x === x && cp.y === y) { this._showCompanionShop(this.scale.width, this.scale.height); return; }
+    }
+
+    // World monster combat on same tile
+    const hit = this.worldMonsters.find(wm2 => wm2.wx === x && wm2.wy === y);
+    if (hit) this._worldCombat(hit);
+  }
+
+  // ─────────────────────────────────────────
+  // WORLD MAP MONSTERS
+  // ─────────────────────────────────────────
+  _spawnWorldMonsters() {
+    const wm = GameState.worldMap;
+    const ts = this.tileSize;
+    const COUNT = 24;
+    const WORLD_MON_TYPES = [
+      { id:'wolf',    name:'Wolf Pack',    icon:'🐺', hp:30,  atk:8,  def:2,  xp:20,  gold:5,  color:0xaaaaaa },
+      { id:'bandit',  name:'Bandits',      icon:'🗡', hp:25,  atk:10, def:3,  xp:25,  gold:15, color:0x886644 },
+      { id:'harpy',   name:'Harpy',        icon:'🦅', hp:20,  atk:7,  def:1,  xp:18,  gold:8,  color:0x88aaff },
+      { id:'ogre',    name:'Ogre',         icon:'👹', hp:60,  atk:14, def:6,  xp:50,  gold:20, color:0x448844 },
+      { id:'worm',    name:'Giant Worm',   icon:'🐛', hp:35,  atk:9,  def:4,  xp:30,  gold:10, color:0x886600 },
+      { id:'scorpion',name:'Scorpion',     icon:'🦂', hp:22,  atk:11, def:2,  xp:22,  gold:8,  color:0xffaa44 },
+      { id:'drake',   name:'Drake',        icon:'🐲', hp:80,  atk:18, def:8,  xp:80,  gold:40, color:0xff6622 },
+    ];
+    for (let i=0; i<COUNT; i++) {
+      let wx, wy, att=0;
+      do {
+        wx = Math.floor(Math.random()*WORLD_COLS);
+        wy = Math.floor(Math.random()*WORLD_ROWS);
+        att++;
+      } while (wm.tiles[wy]?.[wx]?.biome === BIOME.OCEAN && att < 80);
+      const def = WORLD_MON_TYPES[i % WORLD_MON_TYPES.length];
+      const sprite = this.add.text(wx*ts + ts/2, wy*ts + ts/2, def.icon, {fontSize:'18px'})
+        .setOrigin(0.5).setDepth(15);
+      this.mapContainer.add(sprite);
+      // HP bar
+      const hpBg  = this.add.rectangle(wx*ts+ts/2, wy*ts+4, ts-4, 3, 0x440000).setDepth(16);
+      const hpBar = this.add.rectangle(wx*ts+2, wy*ts+4, ts-4, 3, 0xff4444).setOrigin(0,0.5).setDepth(17);
+      this.mapContainer.add(hpBg); this.mapContainer.add(hpBar);
+      this.worldMonsters.push({
+        ...def, wx, wy, maxHp: def.hp, sprite, hpBg, hpBar, alive: true,
+      });
+    }
+  }
+
+  _processWorldMonsters() {
+    const p    = GameState.player;
+    const pos  = p.get('pos');
+    const ts   = this.tileSize;
+    const wm   = GameState.worldMap;
+    for (const mon of this.worldMonsters) {
+      if (!mon.alive) continue;
+      const dx = pos.x - mon.wx, dy = pos.y - mon.wy;
+      const dist = Math.abs(dx)+Math.abs(dy);
+      if (dist <= 1) { this._worldCombat(mon); continue; }
+      if (dist <= 8) {
+        // Move one step toward player
+        const sx = Math.sign(dx), sy = Math.sign(dy);
+        let nx = mon.wx + sx, ny = mon.wy + sy;
+        if (wm.tiles[ny]?.[nx]?.biome === BIOME.OCEAN) { nx = mon.wx; ny = mon.wy; }
+        mon.wx = nx; mon.wy = ny;
+        this.tweens.add({
+          targets: [mon.sprite, mon.hpBg, mon.hpBar],
+          x: nx*ts + ts/2, y: ny*ts + ts/2,
+          duration: 150, ease:'Linear',
+        });
+        mon.hpBg.x  = nx*ts + ts/2;
+        mon.hpBar.x = nx*ts + 2;
+      }
+    }
+  }
+
+  _worldCombat(mon) {
+    if (!mon.alive) return;
+    const p   = GameState.player;
+    const st  = p.get('stats');
+    const hp  = p.get('health');
+    const inv = p.get('inventory');
+
+    // Player attacks monster
+    const pAtk   = (st?.atk||5) + (p.get('equipment')?.weapon?.atk||0);
+    const monDef = mon.def || 0;
+    const pDmg   = Math.max(1, pAtk - monDef + Math.floor(Math.random()*4-2));
+    mon.hp -= pDmg;
+    GameState.addMessage(`You hit ${mon.name} for ${pDmg} damage!`, '#ffff88');
+
+    // Update HP bar
+    const ratio = Math.max(0, mon.hp / mon.maxHp);
+    mon.hpBar.setScale(ratio, 1);
+
+    if (mon.hp <= 0) {
+      mon.alive = false;
+      mon.sprite.destroy(); mon.hpBg.destroy(); mon.hpBar.destroy();
+      this.worldMonsters = this.worldMonsters.filter(m => m !== mon);
+      const xp = mon.xp || 20, gold = mon.gold || 5;
+      if (st) { st.xp += xp; }
+      if (inv) inv.gold += gold;
+      GameState.addMessage(`${mon.name} defeated! +${xp}XP +${gold}💰`, '#44ff88');
+      // Respawn after delay
+      this.time.delayedCall(15000, () => {
+        if (this.worldMonsters.length < 20) this._spawnWorldMonsters_one();
+      });
+      return;
+    }
+
+    // Monster attacks back
+    const mDmg = Math.max(1, mon.atk - (st?.def||0) + Math.floor(Math.random()*3-1));
+    if (hp) {
+      hp.hp = Math.max(0, hp.hp - mDmg);
+      GameState.addMessage(`${mon.name} hits you for ${mDmg} damage!`, '#ff6666');
+      if (hp.hp <= 0) {
+        GameState.addMessage('You died on the world map! Respawning...', '#ff0000');
+        hp.hp = Math.floor(hp.maxHp * 0.5);
+        // Move to nearest dungeon entrance
+        const d0 = GameState.worldMap.dungeons[0];
+        if (d0) { pos.x = d0.x + 2; pos.y = d0.y; }
+      }
+    }
+    this._updateHUD();
+  }
+
+  _spawnWorldMonsters_one() {
+    const ts = this.tileSize;
+    const wm = GameState.worldMap;
+    const TYPES = ['🐺','🗡','👹','🦂'];
+    const icon = TYPES[Math.floor(Math.random()*TYPES.length)];
+    let wx, wy, att=0;
+    do { wx=Math.floor(Math.random()*WORLD_COLS); wy=Math.floor(Math.random()*WORLD_ROWS); att++; }
+    while (wm.tiles[wy]?.[wx]?.biome === BIOME.OCEAN && att<50);
+    const sprite = this.add.text(wx*ts+ts/2, wy*ts+ts/2, icon, {fontSize:'18px'}).setOrigin(0.5).setDepth(15);
+    const hpBg   = this.add.rectangle(wx*ts+ts/2, wy*ts+4, ts-4, 3, 0x440000).setDepth(16);
+    const hpBar  = this.add.rectangle(wx*ts+2, wy*ts+4, ts-4, 3, 0xff4444).setOrigin(0,0.5).setDepth(17);
+    this.mapContainer.add(sprite); this.mapContainer.add(hpBg); this.mapContainer.add(hpBar);
+    this.worldMonsters.push({ id:'wmon', name:'Wild Beast', icon, hp:25, maxHp:25, atk:7, def:2, xp:15, gold:5, wx, wy, sprite, hpBg, hpBar, alive:true });
+  }
+
   update() {
     this._updateHUD();
   }
@@ -2721,6 +2929,24 @@ class DungeonScene extends Phaser.Scene {
     this.spellCursor = this.add.image(0, 0, 'cursor').setScale(SCALE).setDepth(60).setVisible(false);
     this.entityContainer.add(this.spellCursor);
 
+    // Click-to-move: tile hover highlight
+    this.tileHighlight = this.add.rectangle(0, 0, TS*SCALE-2, TS*SCALE-2, 0xffffff, 0)
+      .setStrokeStyle(1, 0xffffff, 0.35).setDepth(58).setVisible(false);
+    this.entityContainer.add(this.tileHighlight);
+    this.input.on('pointermove', (pointer) => {
+      const wx = this.cameras.main.scrollX + pointer.x;
+      const wy = this.cameras.main.scrollY + pointer.y;
+      const tx = Math.floor(wx / TS), ty = Math.floor(wy / TS);
+      const fd2 = GameState.floorData;
+      if (!fd2) return;
+      const t = fd2.tiles[ty]?.[tx];
+      if (t !== undefined && t !== TILE_TYPE.WALL) {
+        this.tileHighlight.setPosition(tx*TS+TS/2, ty*TS+TS/2).setVisible(true);
+      } else {
+        this.tileHighlight.setVisible(false);
+      }
+    });
+
     // Start HUD scene overlay
     if (!this.scene.isActive('HUD')) {
       this.scene.launch('HUD');
@@ -2729,6 +2955,7 @@ class DungeonScene extends Phaser.Scene {
     // Turn state
     this.playerTurn = true;
     this.animating = false;
+    this._clickPath = null; // click-to-move path queue
 
     // Auto-save on floor entry
     GameState.saveToDB(GameState.saveSlot);
@@ -3212,10 +3439,10 @@ class DungeonScene extends Phaser.Scene {
     this.input.keyboard.on('keydown', (event) => {
       if (!this.playerTurn || this.animating) return;
       switch(event.code) {
-        case 'ArrowUp':   case 'KeyW': case 'Numpad8': this._tryMove(0,-1); break;
-        case 'ArrowDown': case 'KeyS': case 'Numpad2': this._tryMove(0, 1); break;
-        case 'ArrowLeft': case 'KeyA': case 'Numpad4': this._tryMove(-1,0); break;
-        case 'ArrowRight':case 'KeyD': case 'Numpad6': this._tryMove(1, 0); break;
+        case 'ArrowUp':   case 'KeyW': case 'Numpad8': this._clickPath=null; this._tryMove(0,-1); break;
+        case 'ArrowDown': case 'KeyS': case 'Numpad2': this._clickPath=null; this._tryMove(0, 1); break;
+        case 'ArrowLeft': case 'KeyA': case 'Numpad4': this._clickPath=null; this._tryMove(-1,0); break;
+        case 'ArrowRight':case 'KeyD': case 'Numpad6': this._clickPath=null; this._tryMove(1, 0); break;
         // Diagonal
         case 'Numpad7': this._tryMove(-1,-1); break;
         case 'Numpad9': this._tryMove( 1,-1); break;
@@ -3240,20 +3467,49 @@ class DungeonScene extends Phaser.Scene {
           }
           break;
         // Open Inventory
-        case 'KeyI': InventoryScene._page='inventory'; this.scene.launch('Inventory'); break;
+        case 'KeyI': InventoryScene._page='inventory'; this._clickPath=null; this.scene.launch('Inventory'); break;
         // Skill tree — use T (S is reserved for movement)
-        case 'KeyT': this.scene.launch('SkillTree'); break;
+        case 'KeyT': this._clickPath=null; this.scene.launch('SkillTree'); break;
       }
     });
 
     // Mouse/touch for spell targeting
     this.input.on('pointerdown', (pointer) => {
-      if (!GameState.targeting) return;
       const wx = this.cameras.main.scrollX + pointer.x;
       const wy = this.cameras.main.scrollY + pointer.y;
       const tx = Math.floor(wx / TS);
       const ty = Math.floor(wy / TS);
-      this._castSpellAt(tx, ty);
+
+      // Spell targeting mode
+      if (GameState.targeting) {
+        this._castSpellAt(tx, ty);
+        return;
+      }
+
+      // Click-to-move: queue A* path to clicked tile
+      const pos = GameState.player?.get('pos');
+      if (!pos) return;
+      if (tx === pos.x && ty === pos.y) return; // already there
+
+      // Check if there's a monster on that tile (attack directly)
+      const monsters = GameState.world.queryTag('monster');
+      const clickedMon = monsters.find(m => { const mp=m.get('pos'); return mp && mp.x===tx && mp.y===ty; });
+      if (clickedMon) { this._attackMonster(clickedMon); return; }
+
+      const fd = GameState.floorData;
+      const passable = (x, y) => {
+        const t = fd.tiles[y]?.[x];
+        const mount = GameState.mount;
+        if (t === undefined) return false;
+        if (t === TILE_TYPE.WALL && !mount?.wallWalk) return false;
+        if (t === TILE_TYPE.LAVA && !mount?.lavaImmune) return false;
+        return true;
+      };
+      const path = astar(fd.tiles, pos.x, pos.y, tx, ty, passable, 60);
+      if (path && path.length > 1) {
+        this._clickPath = path.slice(1); // drop the start node
+        this._stepClickPath(); // start walking
+      }
     });
 
     // Mouse move for targeting cursor
@@ -3266,8 +3522,38 @@ class DungeonScene extends Phaser.Scene {
       this.spellCursor.setPosition(tx*TS+TS/2, ty*TS+TS/2);
     });
 
+    // Right-click or ESC cancels click-path
+    this.input.on('pointerdown', (pointer) => {
+      if (pointer.rightButtonDown()) this._clickPath = null;
+    });
+
     // ── Touch / Mobile controls ────────────────────────────────────
     this._buildTouchControls();
+  }
+
+  // Execute next step of click-to-move path (called once per turn)
+  _stepClickPath() {
+    if (!this._clickPath || this._clickPath.length === 0) { this._clickPath = null; return; }
+    const next = this._clickPath.shift();
+    const pos  = GameState.player?.get('pos');
+    if (!pos) return;
+    const dx = next.x - pos.x, dy = next.y - pos.y;
+
+    // Stop if a monster is adjacent (so player doesn't walk into combat unexpectedly)
+    const fd = GameState.floorData;
+    const monsters = GameState.world.queryTag('monster');
+    const adjacent = monsters.find(m => {
+      const mp = m.get('pos');
+      return mp && Math.abs(mp.x - next.x) + Math.abs(mp.y - next.y) <= 1;
+    });
+    if (adjacent) { this._clickPath = null; return; }
+
+    this._tryMove(dx, dy);
+    // _tryMove calls _endPlayerTurn which processes one full game turn.
+    // After that, if path remains, schedule next step on next animation frame.
+    if (this._clickPath && this._clickPath.length > 0) {
+      this.time.delayedCall(110, () => this._stepClickPath());
+    }
   }
 
   _buildTouchControls() {

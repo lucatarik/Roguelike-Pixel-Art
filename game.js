@@ -1,5 +1,5 @@
 // =============================================================================
-// DUNGEON FORGE — game.js
+// MELISSA'S WRATH: ENDLESS DESCENT — game.js
 // Production-grade Roguelike RPG | Phaser 3 | ECS | Turn-based
 // =============================================================================
 // Systems: ECS · BSP Dungeon Gen · Perlin World · FOV Shadowcast · A* AI
@@ -129,7 +129,7 @@ const DB = {
   _db: null,
   async init() {
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open('DungeonForge', 2);
+      const req = indexedDB.open('MelissasWrath', 2);
       req.onupgradeneeded = e => {
         const db = e.target.result;
         if (!db.objectStoreNames.contains('saves'))
@@ -506,6 +506,189 @@ const MarketState = {
     return { arrow:'●', color:'#aaaaaa' };
   }
 };
+
+// ─────────────────────────────────────────────
+// SHINRE SYSTEM (Special Dungeons + Relics)
+// ─────────────────────────────────────────────
+const SHINRE_DEFS = [
+  {
+    id: 'shinre_chosen',
+    name: 'Being Chosen',
+    temple: 'The Temple of the Sole Crown',
+    icon: '👑',
+    relic: {
+      id: 'relic_diadem',
+      name: 'The Singular Diadem',
+      icon: '👑',
+      desc: '+25% power when you have no active companions. Refuse 3 upgrades in a dungeon for a bonus turn.',
+      passive: true,
+      effect: 'solo_power',
+    },
+    color: 0xffd700,
+    floors: 5,
+    desc: 'She was never chosen — she waited and hoped while he looked elsewhere. Seal this need so Melissa is always his first choice.',
+  },
+  {
+    id: 'shinre_respected',
+    name: 'Being Respected',
+    temple: 'The Temple of Unbroken Oaths',
+    icon: '🤝',
+    relic: {
+      id: 'relic_seal',
+      name: 'Seal of the Honored Name',
+      icon: '🤝',
+      desc: 'After 5 turns without taking damage, gain a shield bubble absorbing next hit.',
+      passive: true,
+      effect: 'honor_shield',
+    },
+    color: 0x44aaff,
+    floors: 5,
+    desc: 'She was diminished — in small moments, in front of others, in the silences he did not fill with care. Seal this need so she is always respected.',
+  },
+  {
+    id: 'shinre_listened',
+    name: 'Being Listened To',
+    temple: 'The Whispering Sanctum',
+    icon: '👂',
+    relic: {
+      id: 'relic_echo',
+      name: 'Echo of the True Voice',
+      icon: '👂',
+      desc: 'Reveals all secret rooms. Enemies telegraph attacks — first strike of each fight deals no damage to you.',
+      passive: true,
+      effect: 'foresight',
+    },
+    color: 0xaaffee,
+    floors: 5,
+    desc: 'She spoke and was not heard. Her words dissolved into a silence he never noticed. Seal this need so Melissa is always truly listened to.',
+  },
+  {
+    id: 'shinre_reassured',
+    name: 'Being Reassured',
+    temple: 'The Temple of Steadfast Light',
+    icon: '🕯',
+    relic: {
+      id: 'relic_lantern',
+      name: 'Lantern of Steady Flame',
+      icon: '🕯',
+      desc: 'Regenerate 2 HP every turn you are not in combat.',
+      passive: true,
+      effect: 'peaceful_regen',
+    },
+    color: 0xffee88,
+    floors: 5,
+    desc: 'She doubted and received nothing in return. The uncertainty grew inside her until it became larger than the love. Seal this need so she is always reassured.',
+  },
+  {
+    id: 'shinre_equal',
+    name: 'Being Treated as Equal',
+    temple: 'The Twin Throne Chamber',
+    icon: '⚖',
+    relic: {
+      id: 'relic_crown_equal',
+      name: 'Crown of Equal Sovereignty',
+      icon: '⚖',
+      desc: 'Each attack raises your vulnerability by 2%. Each turn without attacking reduces it by 4%. Balance is power.',
+      passive: true,
+      effect: 'dynamic_balance',
+    },
+    color: 0xff88ff,
+    floors: 5,
+    desc: 'Love became something she had to earn while he had only to give or withhold it. She was never his equal. Seal this need so the bond is always balanced.',
+  },
+  {
+    id: 'shinre_seen',
+    name: 'Being Seen',
+    temple: 'The Hall of True Sight',
+    icon: '👁',
+    relic: {
+      id: 'relic_gem',
+      name: 'Gem of Unveiled Presence',
+      icon: '👁',
+      desc: 'All invisible enemies revealed. +40% critical chance against marked targets.',
+      passive: true,
+      effect: 'true_sight',
+    },
+    color: 0x44ffaa,
+    floors: 5,
+    desc: 'She was present but invisible. He looked at her and saw a role, not a person — never the full truth of who she was. Seal this need so Melissa is always truly seen.',
+  },
+  {
+    id: 'shinre_protected',
+    name: 'Being Protected, Not Hurt',
+    temple: 'The Bastion of Sacred Guard',
+    icon: '🛡',
+    relic: {
+      id: 'relic_aegis',
+      name: 'Aegis of the Untouched Queen',
+      icon: '🛡',
+      desc: 'A shield that regenerates 15 HP if you go 4 turns without attacking.',
+      passive: true,
+      effect: 'sacred_aegis',
+    },
+    color: 0x88ddff,
+    floors: 5,
+    desc: 'The one she trusted most with her whole self became the source of her deepest hurt. He did not mean to. It happened anyway. Seal this need so she is always safe with him.',
+  },
+];
+
+// Boss Castle (unlocked after all 7 shinre completed)
+const FINAL_CASTLE = {
+  id: 'final_castle',
+  name: "The Shattered Throne",
+  icon: '🏰',
+  temple: "Castle of the Broken Crown",
+  color: 0xff4422,
+  floors: 10,
+  desc: 'The seat of all sorrow. End it.',
+  isFinalBoss: true,
+};
+
+// Compute shinre spawn chance: 5% base + 8% per completed dungeon, capped at 70%
+function getShinreSpawnChance() {
+  const n = GameState.dungeonCompleteCount || 0;
+  return Math.min(0.70, 0.05 + n * 0.08);
+}
+
+// Apply relic passive effects each turn
+function applyRelicEffects(player, turnsSinceHit, turnsNoAttack, inCombat) {
+  const relics = GameState.relics || [];
+  const hp  = player.get('health');
+  const st  = player.get('stats');
+  const inv = player.get('inventory');
+  if (!hp || !st) return;
+
+  for (const relic of relics) {
+    switch (relic.effect) {
+      case 'solo_power':
+        if (!GameState.companionEntity) { st._relicAtk = (st._relicAtk||0) + 0; st._relicAtkBonus = Math.round((st.atk||5)*0.25); }
+        else { st._relicAtkBonus = 0; }
+        break;
+      case 'honor_shield':
+        if (turnsSinceHit >= 5 && !player._honorShield) {
+          player._honorShield = true;
+          GameState.addMessage(`${relic.icon} Honor Shield activated!`, '#44aaff');
+        }
+        break;
+      case 'peaceful_regen':
+        if (!inCombat && hp.hp < hp.maxHp) {
+          hp.hp = Math.min(hp.maxHp, hp.hp + 2);
+        }
+        break;
+      case 'dynamic_balance': {
+        const vuln = Math.max(0, (player._dynVuln || 0) - 4);
+        player._dynVuln = vuln;
+        break;
+      }
+      case 'sacred_aegis':
+        if (turnsNoAttack >= 4 && !player._aegisShield) {
+          player._aegisShield = 15;
+          GameState.addMessage(`${relic.icon} Aegis Shield recharged!`, '#88ddff');
+        }
+        break;
+    }
+  }
+}
 
 // ─────────────────────────────────────────────
 // SKILL TREE
@@ -1111,6 +1294,43 @@ function astar(tiles, sx, sy, ex, ey, passable, maxDist=30) {
         f.set(nk, ng + heuristic({x:nx,y:ny},{x:ex,y:ey}));
         open.set(nk, {x:nx,y:ny});
       }
+    }
+  }
+  return [];
+}
+
+// World-map BFS pathfinding (uses WORLD_COLS/ROWS, not dungeon COLS/ROWS)
+function worldBFS(wm, sx, sy, ex, ey, maxDist=120) {
+  if (sx===ex && sy===ey) return [{x:sx,y:sy}];
+  const key = (x,y) => y * WORLD_COLS + x;
+  const came = new Map();
+  const visited = new Set();
+  const queue = [{x:sx,y:sy,dist:0}];
+  visited.add(key(sx,sy));
+  while (queue.length) {
+    const cur = queue.shift();
+    if (cur.dist > maxDist) continue;
+    if (cur.x===ex && cur.y===ey) {
+      // Reconstruct
+      const path = [];
+      let node = key(ex,ey);
+      while (node !== undefined) {
+        const x = node % WORLD_COLS, y = Math.floor(node / WORLD_COLS);
+        path.unshift({x,y});
+        node = came.get(node);
+      }
+      return path;
+    }
+    for (const d of DIRS4) {
+      const nx = cur.x+d.dx, ny = cur.y+d.dy;
+      if (nx<0||nx>=WORLD_COLS||ny<0||ny>=WORLD_ROWS) continue;
+      const nk = key(nx,ny);
+      if (visited.has(nk)) continue;
+      const tile = wm.tiles[ny]?.[nx];
+      if (!tile || tile.biome === BIOME.OCEAN) continue;
+      visited.add(nk);
+      came.set(nk, key(cur.x,cur.y));
+      queue.push({x:nx,y:ny,dist:cur.dist+1});
     }
   }
   return [];
@@ -1725,13 +1945,25 @@ function generateSprites(scene) {
     });
   });
 
-  // Player marker for world map
+  // Player marker for world map — Melissa 💃
   makeSprite('world_player', (ctx) => {
-    ctx.fillStyle = '#ffff00';
-    ctx.fillRect(6,2,4,12);
-    ctx.fillRect(2,6,12,4);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(7,7,2,2);
+    // Draw a dancer silhouette in gold
+    ctx.fillStyle = '#ffd700';
+    // head
+    ctx.beginPath(); ctx.arc(8,3,2.5,0,Math.PI*2); ctx.fill();
+    // body
+    ctx.fillRect(6,6,4,5);
+    // dress/skirt flare
+    ctx.beginPath();
+    ctx.moveTo(4,11); ctx.lineTo(12,11); ctx.lineTo(14,16); ctx.lineTo(2,16);
+    ctx.closePath(); ctx.fill();
+    // arms
+    ctx.strokeStyle='#ffd700'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(6,7); ctx.lineTo(2,5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(10,7); ctx.lineTo(14,5); ctx.stroke();
+    // glow outline
+    ctx.strokeStyle='#fff0aa'; ctx.lineWidth=0.5;
+    ctx.strokeRect(1,1,14,14);
   });
 
   // Dungeon entrance marker
@@ -1839,7 +2071,7 @@ function generateSprites(scene) {
     px(ctx,7,6,'#ffff88');
   });
 
-  console.log('[DungeonForge] All sprites generated.');
+  console.log('[MelissasWrath] All sprites generated.');
 }
 
 // ─────────────────────────────────────────────
@@ -1864,6 +2096,14 @@ const GameState = {
   companion: null,    // active companion def (from COMPANIONS)
   companionEntity: null, // ECS entity
   mount: null,        // active mount def (from MOUNTS)
+  // ── Shinre / Relic system ──
+  shinreCompleted: [],   // ids of completed shinre temples
+  relics: [],            // collected relic defs
+  dungeonCompleteCount: 0, // regular dungeons completed
+  activeShinre: null,    // current shinre being run (or null)
+  playerName: 'Melissa',
+  turnsSinceHit: 0,      // for honor_shield relic
+  turnsNoAttack: 0,      // for sacred_aegis relic
 
   addMessage(text, color='#ccccee') {
     this.messageLog.unshift({ text, color, turn:this.turnCount });
@@ -1958,17 +2198,24 @@ class TitleScene extends Phaser.Scene {
     }
 
     // Title
-    const titleText = this.add.text(W/2, H*0.22, 'DUNGEON FORGE', {
+    const titleText = this.add.text(W/2, H*0.18, "MELISSA'S WRATH", {
       fontFamily: '"Press Start 2P"',
-      fontSize: Math.min(48, W/18) + 'px',
+      fontSize: Math.min(38, W/20) + 'px',
       color: '#ff6b35',
       stroke: '#000000', strokeThickness: 4,
       shadow: { offsetX:4, offsetY:4, color:'#ff6b3544', blur:8, fill:true }
     }).setOrigin(0.5);
 
-    const subText = this.add.text(W/2, H*0.32, '— A PROCEDURAL ROGUELIKE —', {
+    this.add.text(W/2, H*0.29, 'ENDLESS DESCENT', {
+      fontFamily: '"Press Start 2P"',
+      fontSize: Math.min(20, W/36) + 'px',
+      color: '#ffaa44',
+      stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5);
+
+    const subText = this.add.text(W/2, H*0.36, '— Melissa dances through the dark — 💃', {
       fontFamily: '"VT323"',
-      fontSize: Math.min(28, W/30) + 'px',
+      fontSize: Math.min(26, W/28) + 'px',
       color: '#8888aa',
     }).setOrigin(0.5);
 
@@ -2036,6 +2283,10 @@ class TitleScene extends Phaser.Scene {
     // Init world ECS
     GameState.world = new World();
     GameState.worldMap = generateWorldMap(GameState.seed);
+    GameState.playerName = 'Melissa';
+    GameState.shinreCompleted = [];
+    GameState.dungeonCompleteCount = 0;
+    GameState.relics = [];
     this.scene.start('WorldMap');
   }
 
@@ -2219,6 +2470,40 @@ class WorldMapScene extends Phaser.Scene {
       this.mapContainer.add(cLbl);
     }
 
+    // Draw Shinre temples ✨
+    for (const shinre of (wm.shinres || [])) {
+      const sImg = this.add.image(shinre.x*tileSize, shinre.y*tileSize, 'world_dungeon')
+        .setScale(this.tileScale).setOrigin(0).setTint(shinre.color || 0xffaa44)
+        .setInteractive({ useHandCursor:true });
+      sImg.on('pointerdown', () => this.enterShinre(shinre));
+      sImg.on('pointerover', () => {
+        const def = SHINRE_DEFS.find(s => s.id === shinre.shinreId);
+        this.hoverText.setText(`✨ ${shinre.icon} ${shinre.name}\nShinre Temple\n${def?.relic?.name||'Relic inside'}\nClick to Enter`);
+        this.hoverText.setVisible(true);
+      });
+      sImg.on('pointerout', () => this.hoverText.setVisible(false));
+      this.mapContainer.add(sImg);
+      const sLbl = this.add.text(shinre.x*tileSize + tileSize/2, shinre.y*tileSize - 4, shinre.icon||'✨', {fontSize:'14px'}).setOrigin(0.5,1).setDepth(22);
+      this.mapContainer.add(sLbl);
+    }
+
+    // Draw Final Castle 🏰
+    if (wm.finalCastle) {
+      const fc = wm.finalCastle;
+      const fcImg = this.add.image(fc.x*tileSize, fc.y*tileSize, 'world_dungeon')
+        .setScale(this.tileScale * 1.3).setOrigin(0).setTint(0xff3300)
+        .setInteractive({ useHandCursor:true });
+      fcImg.on('pointerdown', () => this.enterShinre(fc));
+      fcImg.on('pointerover', () => {
+        this.hoverText.setText(`🏰 ${fc.name}\nFINAL BOSS\nAll relics collected!\nClick to Enter`);
+        this.hoverText.setVisible(true);
+      });
+      fcImg.on('pointerout', () => this.hoverText.setVisible(false));
+      this.mapContainer.add(fcImg);
+      const fcLbl = this.add.text(fc.x*tileSize + tileSize/2, fc.y*tileSize - 8, '🏰', {fontSize:'18px'}).setOrigin(0.5,1).setDepth(23);
+      this.mapContainer.add(fcLbl);
+    }
+
     // Init player if not existing
     if (!GameState.player) {
       const startDng = wm.dungeons[0];
@@ -2285,7 +2570,7 @@ class WorldMapScene extends Phaser.Scene {
         Numpad7:'UL', Numpad9:'UR', Numpad1:'DL', Numpad3:'DR',
       };
       const dir = DIR_MAP[ev.code];
-      if (dir) { ev.stopPropagation(); this._worldStep(dir); }
+      if (dir) { ev.stopPropagation(); this._wmClickPath = null; this._worldStep(dir); }
     });
 
     // HUD overlay
@@ -2305,8 +2590,107 @@ class WorldMapScene extends Phaser.Scene {
     // Biome legend
     this._buildLegend(W, H);
 
-    GameState.addMessage('Welcome to DungeonForge! Enter a dungeon to begin your adventure.', '#ffd700');
-    GameState.addMessage('WASD/Arrows to move. Click dungeons or towns.', '#aaaaff');
+    // ── Click-to-move on world map ──────────────────────────────────
+    this._wmClickPath = null;
+    this._wmClickTarget = null;
+
+    // Tile hover highlight
+    const hlSize = tileSize - 2;
+    this.wmHighlight = this.add.rectangle(0, 0, hlSize, hlSize, 0xffffff, 0)
+      .setStrokeStyle(1, 0xffffff, 0.4).setDepth(18).setVisible(false);
+    this.mapContainer.add(this.wmHighlight);
+
+    this.input.on('pointermove', (ptr) => {
+      const wx = this.cameras.main.scrollX + ptr.x;
+      const wy = this.cameras.main.scrollY + ptr.y;
+      const tx = Math.floor(wx / tileSize), ty = Math.floor(wy / tileSize);
+      if (tx >= 0 && tx < WORLD_COLS && ty >= 0 && ty < WORLD_ROWS) {
+        this.wmHighlight.setPosition(tx*tileSize + tileSize/2, ty*tileSize + tileSize/2).setVisible(true);
+      } else {
+        this.wmHighlight.setVisible(false);
+      }
+    });
+
+    this.input.on('pointerdown', (ptr) => {
+      // Ignore if a UI overlay is open (depth > 100 means a menu is visible)
+      const wx = this.cameras.main.scrollX + ptr.x;
+      const wy = this.cameras.main.scrollY + ptr.y;
+      const tx = Math.floor(wx / tileSize), ty = Math.floor(wy / tileSize);
+      if (tx < 0 || tx >= WORLD_COLS || ty < 0 || ty >= WORLD_ROWS) return;
+
+      const tile = wm.tiles[ty]?.[tx];
+      if (!tile) return;
+      const ppos2 = GameState.player?.get('pos');
+      if (!ppos2) return;
+
+      // Check if clicked on a POI — if adjacent act immediately, else walk there
+      const checkPOI = () => {
+        const dist = Math.abs(tx - ppos2.x) + Math.abs(ty - ppos2.y);
+        // Dungeons
+        for (const dng of wm.dungeons) {
+          if (dng.x === tx && dng.y === ty) {
+            if (dist <= 1) { this.enterDungeon(dng); return true; }
+            return false; // will pathfind
+          }
+        }
+        // Towns
+        for (const town of wm.towns) {
+          if (town.x === tx && town.y === ty) {
+            if (dist <= 1) { this.visitTown(town); return true; }
+            return false;
+          }
+        }
+        // Markets
+        for (const mkt of (wm.markets||[])) {
+          if (mkt.x === tx && mkt.y === ty) {
+            if (dist <= 1) { this._showMarket(mkt); return true; }
+            return false;
+          }
+        }
+        // Stables
+        for (const st of (wm.stables||[])) {
+          if (st.x === tx && st.y === ty) {
+            if (dist <= 1) { this._showMountShop(W, H); return true; }
+            return false;
+          }
+        }
+        // Camps
+        for (const cp of (wm.camps||[])) {
+          if (cp.x === tx && cp.y === ty) {
+            if (dist <= 1) { this._showCompanionShop(W, H); return true; }
+            return false;
+          }
+        }
+        // Shinre temples
+        for (const sh of (wm.shinres||[])) {
+          if (sh.x === tx && sh.y === ty) {
+            if (dist <= 1) { this.enterShinre(sh); return true; }
+            return false;
+          }
+        }
+        // Final Castle
+        if (wm.finalCastle && wm.finalCastle.x === tx && wm.finalCastle.y === ty) {
+          if (dist <= 1) { this.enterShinre(wm.finalCastle); return true; }
+          return false;
+        }
+        return null; // not a POI
+      };
+
+      const poiResult = checkPOI();
+      if (poiResult === true) return; // acted immediately
+
+      // Path-find to clicked tile using world BFS
+      if (tile.biome === BIOME.OCEAN && !GameState.mount?.waterWalk) return;
+      const path = worldBFS(wm, ppos2.x, ppos2.y, tx, ty, 120);
+      if (path && path.length > 1) {
+        this._wmClickPath = path.slice(1);
+        this._wmClickTarget = (poiResult === false) ? { x:tx, y:ty } : null;
+        this._wmStepPath();
+      }
+    });
+
+    GameState.addMessage("Welcome to Melissa's Wrath! Enter a dungeon to begin your adventure.", '#ffd700');
+    GameState.addMessage('WASD/Arrows to move. Click on the map to walk there!', '#aaaaff');
   }
 
   _buildHUD(W, H) {
@@ -2356,7 +2740,9 @@ class WorldMapScene extends Phaser.Scene {
       { icon:'🛒', color:'#ffaa44', label:'Market' },
       { icon:'🐴', color:'#88cc44', label:'Stable (mounts)' },
       { icon:'⚔',  color:'#4488ff', label:'Guild (companions)' },
-      { icon:'🧑', color:'#ffff44', label:'You' },
+      { icon:'✨', color:'#ffee44', label:'Shinre Temple' },
+      { icon:'🏰', color:'#ff4422', label:'Final Castle' },
+      { icon:'💃', color:'#ffff44', label:'Melissa (you)' },
     ];
     items.forEach((it, i) => {
       this.add.text(lx+8,  ly+20+i*21, it.icon, { fontSize:'13px' }).setScrollFactor(0).setDepth(51);
@@ -2387,10 +2773,20 @@ class WorldMapScene extends Phaser.Scene {
     GameState.floor = 1;
     GameState.currentDungeon = dng;
     dng.visited = true;
-    GameState.floorData = generateFloor(1, GameState.seed ^ dng.id);
-    GameState.addMessage(`Entering ${dng.name}...`, '#ff6b35');
+    // Support custom maxFloor per dungeon
+    GameState.currentMaxFloor = dng.maxFloor || MAX_FLOORS;
+    GameState.activeShinre = dng.isShinre ? dng : null;
+    GameState.floorData = generateFloor(1, GameState.seed ^ (typeof dng.id === 'number' ? dng.id : 0));
+    GameState.addMessage(`⚔ Melissa enters ${dng.name}...`, '#ff6b35');
+    if (dng.isShinre) {
+      const sdef = SHINRE_DEFS.find(s => s.id === dng.shinreId);
+      if (sdef) GameState.addMessage(`✨ "${sdef.desc}"`, '#ffaa44');
+    }
     this.scene.start('Dungeon');
-    this.scene.start('HUD', null, false, this);
+  }
+
+  enterShinre(shinre) {
+    this.enterDungeon(shinre);
   }
 
   visitTown(town) {
@@ -2668,6 +3064,49 @@ class WorldMapScene extends Phaser.Scene {
     this.input.keyboard.once('keydown-ESC',closeAll);
   }
 
+  // Execute one step of the world-map click path
+  _wmStepPath() {
+    if (!this._wmClickPath || this._wmClickPath.length === 0) {
+      this._wmClickPath = null;
+      // Execute POI action if we arrived at destination
+      if (this._wmClickTarget) {
+        const t = this._wmClickTarget; this._wmClickTarget = null;
+        const wm = GameState.worldMap;
+        const pos = GameState.player?.get('pos');
+        if (!pos) return;
+        const dist = Math.abs(t.x - pos.x) + Math.abs(t.y - pos.y);
+        if (dist <= 1) {
+          // Check what POI is here
+          for (const dng of wm.dungeons) { if(dng.x===t.x&&dng.y===t.y){this.enterDungeon(dng);return;} }
+          for (const town of wm.towns)   { if(town.x===t.x&&town.y===t.y){this.visitTown(town);return;} }
+          for (const mkt of (wm.markets||[])) { if(mkt.x===t.x&&mkt.y===t.y){this._showMarket(mkt);return;} }
+          for (const st of (wm.stables||[]))  { if(st.x===t.x&&st.y===t.y){this._showMountShop(this.scale.width,this.scale.height);return;} }
+          for (const cp of (wm.camps||[]))    { if(cp.x===t.x&&cp.y===t.y){this._showCompanionShop(this.scale.width,this.scale.height);return;} }
+        }
+      }
+      return;
+    }
+    const next = this._wmClickPath.shift();
+    const pos  = GameState.player?.get('pos');
+    if (!pos) return;
+    // Check if world monster is on this tile — stop
+    const blocked = this.worldMonsters?.find(m => m.alive && m.wx===next.x && m.wy===next.y);
+    if (blocked) { this._wmClickPath = null; this._worldCombat(blocked); return; }
+    // Determine direction and step
+    const dx = Math.sign(next.x - pos.x), dy = Math.sign(next.y - pos.y);
+    const dirMap = {
+      '0,-1':'U','0,1':'D','-1,0':'L','1,0':'R',
+      '-1,-1':'UL','1,-1':'UR','-1,1':'DL','1,1':'DR',
+    };
+    const dir = dirMap[`${dx},${dy}`] || 'U';
+    this._worldStep(dir);
+    if (this._wmClickPath && this._wmClickPath.length > 0) {
+      this.time.delayedCall(130, () => this._wmStepPath());
+    } else {
+      this.time.delayedCall(150, () => this._wmStepPath()); // trigger target action
+    }
+  }
+
   // ─────────────────────────────────────────
   // WORLD MAP MOVEMENT
   // ─────────────────────────────────────────
@@ -2703,32 +3142,32 @@ class WorldMapScene extends Phaser.Scene {
   }
 
   _checkWorldInteractions(x, y, wm) {
-    const PROX = 1; // tiles of proximity to trigger
-    const dist = (a,b) => Math.abs(a.x-x) + Math.abs(a.y-y);
-
-    // Auto-enter dungeon if stepping onto it
+    // Auto-enter/visit only when player steps ON the tile (dist = 0)
     for (const dng of wm.dungeons) {
       if (dng.x === x && dng.y === y) { this.enterDungeon(dng); return; }
     }
-    // Auto-visit town if stepping onto it
     for (const town of wm.towns) {
       if (town.x === x && town.y === y) { this.visitTown(town); return; }
     }
-    // Market proximity
     for (const mkt of (wm.markets||[])) {
       if (mkt.x === x && mkt.y === y) { this._showMarket(mkt); return; }
     }
-    // Stable proximity
     for (const st of (wm.stables||[])) {
       if (st.x === x && st.y === y) { this._showMountShop(this.scale.width, this.scale.height); return; }
     }
-    // Camp proximity
     for (const cp of (wm.camps||[])) {
       if (cp.x === x && cp.y === y) { this._showCompanionShop(this.scale.width, this.scale.height); return; }
     }
-
+    // Shinre temples
+    for (const sh of (wm.shinres||[])) {
+      if (sh.x === x && sh.y === y) { this.enterShinre(sh); return; }
+    }
+    // Final Castle
+    if (wm.finalCastle && wm.finalCastle.x === x && wm.finalCastle.y === y) {
+      this.enterShinre(wm.finalCastle); return;
+    }
     // World monster combat on same tile
-    const hit = this.worldMonsters.find(wm2 => wm2.wx === x && wm2.wy === y);
+    const hit = this.worldMonsters?.find(m2 => m2.alive && m2.wx === x && m2.wy === y);
     if (hit) this._worldCombat(hit);
   }
 
@@ -3491,12 +3930,68 @@ class DungeonScene extends Phaser.Scene {
       if (!pos) return;
       if (tx === pos.x && ty === pos.y) return; // already there
 
-      // Check if there's a monster on that tile (attack directly)
+      // Check if there's a monster on that tile
+      const pos0 = GameState.player?.get('pos');
       const monsters = GameState.world.queryTag('monster');
       const clickedMon = monsters.find(m => { const mp=m.get('pos'); return mp && mp.x===tx && mp.y===ty; });
-      if (clickedMon) { this._attackMonster(clickedMon); return; }
+      if (clickedMon) {
+        const mp = clickedMon.get('pos');
+        const dist = Math.abs(mp.x - pos0.x) + Math.abs(mp.y - pos0.y);
+        if (dist <= 1) {
+          // Adjacent: attack immediately
+          this._attackMonster(clickedMon);
+          return;
+        }
+        // Not adjacent: path-find next to the monster then attack
+        const fd0 = GameState.floorData;
+        const passable0 = (x,y) => {
+          const t = fd0.tiles[y]?.[x];
+          if (t === undefined) return false;
+          if (t === TILE_TYPE.WALL && !GameState.mount?.wallWalk) return false;
+          return true;
+        };
+        // Try to walk adjacent to the monster
+        const path0 = astar(fd0.tiles, pos0.x, pos0.y, mp.x, mp.y, passable0, 60);
+        if (path0 && path0.length > 2) {
+          this._clickPath = path0.slice(1, path0.length - 1); // stop one before monster
+          this._stepClickPath();
+        }
+        return;
+      }
 
       const fd = GameState.floorData;
+
+      // Click on stairs tile
+      const clickedTile = fd.tiles[ty]?.[tx];
+      if (clickedTile === TILE_TYPE.STAIRS_DOWN || clickedTile === TILE_TYPE.STAIRS_UP) {
+        const dist = Math.abs(tx - pos.x) + Math.abs(ty - pos.y);
+        if (dist <= 1) { this._useStairs(); return; }
+        // Walk to it then use
+        const pathS = astar(fd.tiles, pos.x, pos.y, tx, ty,
+          (x,y)=>fd.tiles[y]?.[x]!==undefined&&fd.tiles[y][x]!==TILE_TYPE.WALL, 60);
+        if (pathS && pathS.length > 1) {
+          this._clickPath = pathS.slice(1);
+          this._clickTarget = { type:'stairs', x:tx, y:ty };
+          this._stepClickPath();
+        }
+        return;
+      }
+
+      // Click on chest tile
+      if (clickedTile === TILE_TYPE.CHEST) {
+        const dist = Math.abs(tx - pos.x) + Math.abs(ty - pos.y);
+        if (dist <= 1) { this._openChestAt(tx, ty); return; }
+        // Walk adjacent to chest then open
+        const pathC = astar(fd.tiles, pos.x, pos.y, tx, ty,
+          (x,y)=>fd.tiles[y]?.[x]!==undefined&&fd.tiles[y][x]!==TILE_TYPE.WALL, 60);
+        if (pathC && pathC.length > 1) {
+          this._clickPath = pathC.slice(1, pathC.length - 1);
+          this._clickTarget = { type:'chest', x:tx, y:ty };
+          this._stepClickPath();
+        }
+        return;
+      }
+
       const passable = (x, y) => {
         const t = fd.tiles[y]?.[x];
         const mount = GameState.mount;
@@ -3508,6 +4003,7 @@ class DungeonScene extends Phaser.Scene {
       const path = astar(fd.tiles, pos.x, pos.y, tx, ty, passable, 60);
       if (path && path.length > 1) {
         this._clickPath = path.slice(1); // drop the start node
+        this._clickTarget = null;
         this._stepClickPath(); // start walking
       }
     });
@@ -3533,73 +4029,135 @@ class DungeonScene extends Phaser.Scene {
 
   // Execute next step of click-to-move path (called once per turn)
   _stepClickPath() {
-    if (!this._clickPath || this._clickPath.length === 0) { this._clickPath = null; return; }
+    if (!this._clickPath || this._clickPath.length === 0) {
+      this._clickPath = null;
+      // Execute pending target action after reaching destination
+      if (this._clickTarget) {
+        const t = this._clickTarget;
+        this._clickTarget = null;
+        if (t.type === 'stairs') { this._useStairs(); }
+        else if (t.type === 'chest') { this._openChestAt(t.x, t.y); }
+      }
+      return;
+    }
     const next = this._clickPath.shift();
     const pos  = GameState.player?.get('pos');
     if (!pos) return;
     const dx = next.x - pos.x, dy = next.y - pos.y;
 
-    // Stop if a monster is adjacent (so player doesn't walk into combat unexpectedly)
+    // Stop if a hostile monster is directly on the next tile
     const fd = GameState.floorData;
     const monsters = GameState.world.queryTag('monster');
-    const adjacent = monsters.find(m => {
+    const blocking = monsters.find(m => {
       const mp = m.get('pos');
-      return mp && Math.abs(mp.x - next.x) + Math.abs(mp.y - next.y) <= 1;
+      return mp && mp.x === next.x && mp.y === next.y;
     });
-    if (adjacent) { this._clickPath = null; return; }
+    if (blocking) {
+      this._clickPath = null;
+      this._clickTarget = null;
+      this._attackMonster(blocking);
+      return;
+    }
 
     this._tryMove(dx, dy);
-    // _tryMove calls _endPlayerTurn which processes one full game turn.
-    // After that, if path remains, schedule next step on next animation frame.
     if (this._clickPath && this._clickPath.length > 0) {
       this.time.delayedCall(110, () => this._stepClickPath());
+    } else {
+      // Path finished — execute pending action
+      if (this._clickTarget) {
+        const t = this._clickTarget; this._clickTarget = null;
+        this.time.delayedCall(130, () => {
+          if (t.type === 'stairs') this._useStairs();
+          else if (t.type === 'chest') this._openChestAt(t.x, t.y);
+        });
+      }
     }
+  }
+
+  // Open chest at specific tile coordinates
+  _openChestAt(tx, ty) {
+    const pos = GameState.player?.get('pos');
+    if (!pos) return;
+    const dist = Math.abs(tx - pos.x) + Math.abs(ty - pos.y);
+    if (dist > 1) { GameState.addMessage('Too far away!', '#888888'); return; }
+    const fd = GameState.floorData;
+    const chest = fd.chests.find(c => c.x===tx && c.y===ty && !c.opened);
+    if (!chest) { GameState.addMessage('Nothing here.', '#888888'); return; }
+    chest.opened = true;
+    fd.tiles[ty][tx] = TILE_TYPE.FLOOR;
+    if (this.tileSprites[ty]?.[tx]) this.tileSprites[ty][tx].setTexture('tile_floor');
+    const inv = GameState.player.get('inventory');
+    const loot = rollLoot(chest.rarity, fd.floor || GameState.floor);
+    let found = 0;
+    for (const item of loot) {
+      if (inv.items.length < inv.maxSize) { inv.items.push(item); found++; }
+    }
+    if (found > 0) GameState.addMessage(`📦 Chest: found ${loot.slice(0,found).map(i=>i.name).join(', ')}!`, '#ffd700');
+    else           GameState.addMessage('Chest was empty!', '#888888');
+    window.showToast('Chest opened!', found > 0 ? 'rare' : '');
+    this._updateHUD();
   }
 
   _buildTouchControls() {
     const W = this.scale.width, H = this.scale.height;
-    // Always build touch controls - they work with mouse too on desktop
-    // Users can hide them with the toggle button
+    const panelH = 80;
+    const btnSize = 50;
+    const padX = 68, padY = H - panelH - 14;
+    const btnAlpha = 0.60;
+    const btnColor = 0x1a1a3a;
+    const DEP = 200;
 
-    const panelH = 80; // HUD height
-    const btnSize = 52;
-    const padX = 70, padY = H - panelH - 10;
+    // All touch UI objects collected for show/hide
+    const allObjs = [];
 
-    const btnAlpha = 0.55;
-    const btnColor = 0x222244;
-    const arrowStyle = { fontFamily:'"VT323"', fontSize:'28px', color:'#aaaaff' };
-
-    const makeBtn = (x, y, label, action) => {
-      const btn = this.add.rectangle(x, y, btnSize, btnSize, btnColor, btnAlpha)
-        .setScrollFactor(0).setDepth(200).setStrokeStyle(1, 0x4444aa)
+    const makeBtn = (x, y, icon, label, action, tint=0x4444aa) => {
+      const bg = this.add.rectangle(x, y, btnSize, btnSize, btnColor, btnAlpha)
+        .setScrollFactor(0).setDepth(DEP).setStrokeStyle(1, tint)
         .setInteractive({ useHandCursor:true });
-      const txt = this.add.text(x, y, label, arrowStyle).setOrigin(0.5).setScrollFactor(0).setDepth(201);
-      btn.on('pointerdown', action);
-      btn.on('pointerover', () => btn.setFillStyle(0x3333aa, 0.8));
-      btn.on('pointerout',  () => btn.setFillStyle(btnColor, btnAlpha));
-      return btn;
+      const iconTxt = this.add.text(x, y - 6, icon,
+        { fontSize: icon.length > 1 ? '20px' : '24px' }).setOrigin(0.5).setScrollFactor(0).setDepth(DEP+1);
+      const labelTxt = this.add.text(x, y + 14, label,
+        { fontFamily:'"VT323"', fontSize:'10px', color:'#556688' }).setOrigin(0.5).setScrollFactor(0).setDepth(DEP+1);
+      bg.on('pointerdown', action);
+      bg.on('pointerover', () => bg.setFillStyle(0x2a2a5a, 0.9));
+      bg.on('pointerout',  () => bg.setFillStyle(btnColor, btnAlpha));
+      allObjs.push(bg, iconTxt, labelTxt);
+      return bg;
     };
 
-    // D-pad left side — movement
-    makeBtn(padX,        padY - btnSize,   '▲', () => this._tryMove( 0,-1));
-    makeBtn(padX,        padY,             '▼', () => this._tryMove( 0, 1));
-    makeBtn(padX - btnSize, padY - btnSize/2, '◀', () => this._tryMove(-1, 0));
-    makeBtn(padX + btnSize, padY - btnSize/2, '▶', () => this._tryMove( 1, 0));
-    makeBtn(padX,        padY - btnSize/2, '·', () => this._endPlayerTurn()); // wait
+    // ── D-PAD ──────────────────────────────────────────────────────
+    makeBtn(padX,              padY - btnSize,     '▲','',   () => { this._clickPath=null; this._tryMove(0,-1); });
+    makeBtn(padX,              padY + 2,           '▼','',   () => { this._clickPath=null; this._tryMove(0,1);  });
+    makeBtn(padX - btnSize,    padY - btnSize/2,   '◀','',   () => { this._clickPath=null; this._tryMove(-1,0); });
+    makeBtn(padX + btnSize,    padY - btnSize/2,   '▶','',   () => { this._clickPath=null; this._tryMove(1,0);  });
+    makeBtn(padX,              padY - btnSize/2,   '⏸','wait', () => this._endPlayerTurn());
+    // Diagonals (smaller)
+    makeBtn(padX - btnSize,    padY - btnSize*1.5, '↖','',   () => { this._clickPath=null; this._tryMove(-1,-1); });
+    makeBtn(padX + btnSize,    padY - btnSize*1.5, '↗','',   () => { this._clickPath=null; this._tryMove(1,-1);  });
+    makeBtn(padX - btnSize,    padY + 2,           '↙','',   () => { this._clickPath=null; this._tryMove(-1,1);  });
+    makeBtn(padX + btnSize,    padY + 2,           '↘','',   () => { this._clickPath=null; this._tryMove(1,1);   });
 
-    // Diagonal buttons (small)
-    makeBtn(padX - btnSize, padY - btnSize*1.5, '↖', () => this._tryMove(-1,-1));
-    makeBtn(padX + btnSize, padY - btnSize*1.5, '↗', () => this._tryMove( 1,-1));
-    makeBtn(padX - btnSize, padY + btnSize*0.5, '↙', () => this._tryMove(-1, 1));
-    makeBtn(padX + btnSize, padY + btnSize*0.5, '↘', () => this._tryMove( 1, 1));
+    // ── ACTION BUTTONS ─────────────────────────────────────────────
+    // Fix 2: single button for "interact" (open chest / use stairs / pickup)
+    const ax = W - 68, ay = padY - btnSize*0.5;
 
-    // Action buttons right side
-    const ax = W - 70, ay = padY - btnSize/2;
-    makeBtn(ax,            ay - btnSize,   'I',  () => { InventoryScene._page='inventory'; this.scene.launch('Inventory'); });
-    makeBtn(ax - btnSize,  ay - btnSize,   'T',  () => this.scene.launch('SkillTree'));
-    makeBtn(ax,            ay,             'G',  () => this._pickupItem());
-    makeBtn(ax - btnSize,  ay,             'E',  () => this._useStairs());
-    makeBtn(ax - btnSize/2, ay - btnSize*2,'F',  () => {
+    makeBtn(ax,             ay,             '📦','Open/Use', () => {
+      // Try stairs first, then chest, then pickup
+      const pos = GameState.player?.get('pos');
+      const fd  = GameState.floorData;
+      if (!pos||!fd) return;
+      const tile = fd.tiles[pos.y][pos.x];
+      if (tile === TILE_TYPE.STAIRS_DOWN || tile === TILE_TYPE.STAIRS_UP) { this._useStairs(); return; }
+      // Check adjacent chest
+      for (const [dx,dy] of [[0,0],[1,0],[-1,0],[0,1],[0,-1]]) {
+        const cx=pos.x+dx, cy=pos.y+dy;
+        const ch = fd.chests?.find(c=>c.x===cx&&c.y===cy&&!c.opened);
+        if (ch) { this._openChestAt(cx,cy); return; }
+      }
+      this._pickupItem();
+    }, 0x44aa44);
+
+    makeBtn(ax - btnSize,   ay,             '🧪','Spell',   () => {
       const skills = GameState.player?.get('skills');
       const known  = (skills?.known||[]).filter(s=>SPELLS[s.id]);
       if (known.length > 0) {
@@ -3608,21 +4166,40 @@ class DungeonScene extends Phaser.Scene {
         this.spellCursor.setVisible(true);
         GameState.addMessage(`Targeting ${SPELLS[known[0].id]?.name}. Tap target.`, '#aaaaff');
       }
+    }, 0xaa44ff);
+
+    makeBtn(ax,             ay - btnSize,   '🎒','Items',   () => { InventoryScene._page='inventory'; this._clickPath=null; this.scene.launch('Inventory'); }, 0xaa8844);
+    makeBtn(ax - btnSize,   ay - btnSize,   '⭐','Skills',  () => { this._clickPath=null; this.scene.launch('SkillTree'); }, 0x44aaff);
+
+    // ── TOGGLE BUTTON (always visible) ─────────────────────────────
+    // Fix 4: show/hide toggle for the whole pad
+    let padVisible = true;
+    const toggleX = W - 14, toggleY = H - panelH - btnSize*3.5;
+    const toggleBg = this.add.rectangle(toggleX, toggleY, 26, 26, 0x111122, 0.85)
+      .setScrollFactor(0).setDepth(DEP+5).setStrokeStyle(1, 0x4444aa)
+      .setInteractive({ useHandCursor:true });
+    const toggleTxt = this.add.text(toggleX, toggleY, '🎮',
+      { fontSize:'14px' }).setOrigin(0.5).setScrollFactor(0).setDepth(DEP+6);
+
+    toggleBg.on('pointerdown', () => {
+      padVisible = !padVisible;
+      allObjs.forEach(o => o.setVisible(padVisible));
+      toggleTxt.setText(padVisible ? '🎮' : '👁');
     });
 
-    // Collect all touch UI objects for toggle
-    const touchObjects = [];
-    // (all makeBtn calls above added to scene — capture them via a wrapper)
-
-    // Status strip above D-pad: mount + companion
-    const statusY = H - panelH - 28;
+    // Mount/companion status strip
+    const statusY = H - panelH - 24;
     if (GameState.mount) {
-      this.add.text(padX, statusY, `${GameState.mount.icon}${GameState.mount.name}`,
-        {fontFamily:'"VT323"', fontSize:'12px', color:'#88ccff'}).setOrigin(0.5).setScrollFactor(0).setDepth(200);
+      const ms = this.add.text(padX, statusY,
+        `${GameState.mount.icon} ${GameState.mount.name}`,
+        {fontFamily:'"VT323"', fontSize:'12px', color:'#88ccff'}).setOrigin(0.5).setScrollFactor(0).setDepth(DEP);
+      allObjs.push(ms);
     }
     if (GameState.companion) {
-      this.add.text(padX, statusY - 16, `${GameState.companion.icon}${GameState.companion.name}`,
-        {fontFamily:'"VT323"', fontSize:'12px', color:'#88ff88'}).setOrigin(0.5).setScrollFactor(0).setDepth(200);
+      const cs = this.add.text(padX, statusY - 14,
+        `${GameState.companion.icon} ${GameState.companion.name}`,
+        {fontFamily:'"VT323"', fontSize:'12px', color:'#88ff88'}).setOrigin(0.5).setScrollFactor(0).setDepth(DEP);
+      allObjs.push(cs);
     }
   }
 
@@ -3768,6 +4345,7 @@ class DungeonScene extends Phaser.Scene {
   }
 
   _attackMonster(monster) {
+    GameState.turnsNoAttack = 0; // reset no-attack relic counter
     const p = GameState.player;
     const skills = p.get('skills');
     let options = {};
@@ -3990,6 +4568,109 @@ class DungeonScene extends Phaser.Scene {
     if (GameState.floorData) GameState.floorData.monsters = [];
   }
 
+  // ── Dungeon completion ────────────────────────────────────────────
+  _onDungeonComplete() {
+    const dng = GameState.currentDungeon;
+    const wm  = GameState.worldMap;
+    const rng = new RNG(GameState.seed ^ Date.now());
+
+    // ── Shinre completion ──────────────────────────────────────────
+    if (dng?.isShinre && dng.shinreId) {
+      const shinreDef = SHINRE_DEFS.find(s => s.id === dng.shinreId);
+      if (shinreDef && !GameState.shinreCompleted.includes(dng.shinreId)) {
+        GameState.shinreCompleted.push(dng.shinreId);
+        GameState.relics.push({ ...shinreDef.relic });
+        const msg = `✨ ${shinreDef.relic.icon} Relic obtained: ${shinreDef.relic.name}!`;
+        GameState.addMessage(msg, '#ffd700');
+        window.showToast(msg, 'legendary');
+        // Remove this shinre from map
+        if (wm.shinres) wm.shinres = wm.shinres.filter(s => s.id !== dng.id);
+        // Check if ALL shinre done → unlock final castle
+        if (GameState.shinreCompleted.length >= SHINRE_DEFS.length && !wm.finalCastle) {
+          const fx = rng.int(3, (wm.tiles[0]?.length||30) - 4);
+          const fy = rng.int(3, (wm.tiles?.length||20) - 4);
+          wm.finalCastle = { x:fx, y:fy, ...FINAL_CASTLE };
+          GameState.addMessage('🏰 THE SHATTERED THRONE has appeared! Valdris awaits.', '#ff4422');
+          window.showToast('🏰 Final Boss Castle unlocked!', 'legendary');
+        }
+      }
+    } else {
+      // Regular dungeon complete
+      GameState.dungeonCompleteCount = (GameState.dungeonCompleteCount||0) + 1;
+      GameState.addMessage(`⚔ Dungeon cleared! (${GameState.dungeonCompleteCount} total)`, '#44ff88');
+      window.showToast('Dungeon Cleared!', 'legendary');
+
+      // ── Remove cleared dungeon from map ──────────────────────────
+      if (dng && wm.dungeons) {
+        wm.dungeons = wm.dungeons.filter(d => d.id !== dng.id);
+        GameState.addMessage(`The entrance to ${dng.name} crumbles...`, '#888888');
+      }
+
+      // ── Spawn new dungeon at higher level ────────────────────────
+      const maxLevel = Math.max(...(wm.dungeons||[]).map(d => d.maxFloor||MAX_FLOORS), MAX_FLOORS);
+      const newMaxFloor = Math.min(maxLevel + 1, 20); // cap at 20
+      let nx2, ny2, att = 0;
+      do {
+        nx2 = rng.int(2, (wm.tiles[0]?.length||30) - 3);
+        ny2 = rng.int(2, (wm.tiles?.length||20) - 3);
+        att++;
+      } while (wm.tiles[ny2]?.[nx2]?.biome === 0 /* OCEAN */ && att < 60);
+      const biomeNames = ['Plains','Forest','Desert','Snow','Volcano'];
+      const newName = `${biomeNames[rng.int(0, biomeNames.length-1)]} Dungeon ★${newMaxFloor}`;
+      const newId = `dng_${Date.now()}`;
+      wm.dungeons.push({ x:nx2, y:ny2, id:newId, name:newName, maxFloor:newMaxFloor, visited:false });
+      GameState.addMessage(`A new dungeon has appeared: ${newName}!`, '#ff8844');
+      window.showToast(`New dungeon: ${newName}`, 'rare');
+
+      // ── Maybe spawn a Shinre ──────────────────────────────────────
+      const chance = getShinreSpawnChance();
+      const remaining = SHINRE_DEFS.filter(s => !GameState.shinreCompleted.includes(s.id));
+      if (remaining.length > 0 && Math.random() < chance) {
+        const shinreDef = remaining[rng.int(0, remaining.length-1)];
+        let sx2, sy2, att2 = 0;
+        do {
+          sx2 = rng.int(2, (wm.tiles[0]?.length||30) - 3);
+          sy2 = rng.int(2, (wm.tiles?.length||20) - 3);
+          att2++;
+        } while (wm.tiles[sy2]?.[sx2]?.biome === 0 && att2 < 60);
+        if (!wm.shinres) wm.shinres = [];
+        const shinreId = `shinre_${Date.now()}`;
+        wm.shinres.push({
+          x:sx2, y:sy2, id:shinreId,
+          shinreId: shinreDef.id,
+          name: shinreDef.temple,
+          icon: shinreDef.icon,
+          color: shinreDef.color,
+          isShinre: true,
+          maxFloor: 5,
+          visited: false,
+        });
+        GameState.addMessage(`✨ A Shinre appeared: ${shinreDef.icon} ${shinreDef.temple}!`, '#ffaa44');
+        window.showToast(`Shinre: ${shinreDef.temple}`, 'legendary');
+      }
+    }
+
+    // Return to world map
+    GameState.inDungeon = false;
+    GameState.currentDungeon = null;
+    GameState.floor = 1;
+    const pr = GameState.player?.get('render');
+    if (pr) { pr.sprite = null; pr.hpBg = null; pr.hpBar = null; }
+    const monsters2 = GameState.world?.queryTag('monster') || [];
+    for (const m of monsters2) {
+      const r = m.get('render'); if (r) { r.sprite=null; r.hpBg=null; r.hpBar=null; }
+      GameState.world.destroy(m.id);
+    }
+    if (GameState.floorData) GameState.floorData.monsters = [];
+    if (GameState.companionEntity) {
+      const cr = GameState.companionEntity.get('render');
+      if (cr) { cr.sprite=null; cr.hpBg=null; cr.hpBar=null; cr.label=null; }
+      GameState.world.destroy(GameState.companionEntity.id);
+      GameState.companionEntity = null;
+    }
+    this.scene.start('WorldMap');
+  }
+
   _useStairs() {
     const p = GameState.player;
     const pos = p.get('pos');
@@ -3997,8 +4678,10 @@ class DungeonScene extends Phaser.Scene {
     const tile = fd.tiles[pos.y][pos.x];
 
     if (tile === TILE_TYPE.STAIRS_DOWN) {
-      if (GameState.floor >= MAX_FLOORS) {
-        GameState.addMessage('You have reached the deepest floor! Face the final boss!', '#ffd700');
+      const maxFloor = GameState.currentMaxFloor || MAX_FLOORS;
+      if (GameState.floor >= maxFloor) {
+        // DUNGEON COMPLETED — call handler then return to world
+        this._onDungeonComplete();
         return;
       }
       GameState.floor++;
@@ -4008,7 +4691,7 @@ class DungeonScene extends Phaser.Scene {
       this.scene.restart();
     } else if (tile === TILE_TYPE.STAIRS_UP) {
       if (GameState.floor <= 1) {
-        GameState.addMessage('Returning to world map...', '#88ff88');
+        GameState.addMessage('Melissa returns to the surface...', '#88ff88');
         GameState.inDungeon = false;
         // Null all Phaser refs so DungeonScene.create() rebuilds them clean on next entry
         const pr = GameState.player?.get('render');
@@ -4163,6 +4846,16 @@ class DungeonScene extends Phaser.Scene {
 
   _endPlayerTurn() {
     GameState.turnCount++;
+    GameState.turnsSinceHit = (GameState.turnsSinceHit||0) + 1;
+    GameState.turnsNoAttack = (GameState.turnsNoAttack||0) + 1;
+    // Apply relic passive effects
+    const inCombat = GameState.world?.queryTag('monster')?.some(m => {
+      const mp = m.get('pos'), pp = GameState.player?.get('pos');
+      return mp && pp && Math.abs(mp.x-pp.x)+Math.abs(mp.y-pp.y) <= 5;
+    }) || false;
+    if (GameState.relics?.length) {
+      applyRelicEffects(GameState.player, GameState.turnsSinceHit, GameState.turnsNoAttack, inCombat);
+    }
     this._processStatusEffects(GameState.player);
     this._processCompanionAI();
     this._processMonstersAI();
@@ -4468,7 +5161,28 @@ class DungeonScene extends Phaser.Scene {
     } else if (result.miss) {
       GameState.addMessage(`${mDef?.name||'Enemy'} misses!`, '#888888');
     } else {
+      // Check relics: honor_shield absorbs next hit
+      if (p._honorShield) {
+        p._honorShield = false;
+        GameState.addMessage(`🤝 Honor Shield absorbs the hit!`, '#44aaff');
+        this._showFloatingText(pPos.x, pPos.y, 'BLOCKED', '#44aaff');
+        this.cameras.main.shake(60, 0.002);
+        return;
+      }
+      // Aegis of untouched queen absorbs some damage
+      if (p._aegisShield && p._aegisShield > 0) {
+        const absorbed = Math.min(p._aegisShield, result.damage);
+        p._aegisShield -= absorbed;
+        const remaining = result.damage - absorbed;
+        if (absorbed > 0) {
+          GameState.addMessage(`🛡 Aegis absorbs ${absorbed} damage!`, '#88ddff');
+          this._showFloatingText(pPos.x, pPos.y, `-${absorbed}🛡`, '#88ddff');
+        }
+        if (remaining <= 0) { this.cameras.main.shake(60,0.002); return; }
+        result.damage = remaining;
+      }
       applyDamage(p, result.damage);
+      GameState.turnsSinceHit = 0; // reset honor_shield counter
       const critTxt = result.crit ? ' [CRIT!]' : '';
       GameState.addMessage(`${mDef?.name||'Enemy'} hits you for ${result.damage}!${critTxt}`, '#ff6666');
       this._showDamageNumber(pPos.x, pPos.y, result.damage, '#ff0000');
@@ -4660,9 +5374,13 @@ class DungeonScene extends Phaser.Scene {
     }
 
     // Floor number — prominent centre
+    const maxF = GameState.currentMaxFloor || MAX_FLOORS;
+    const isShinre = GameState.activeShinre;
+    const shinreIcon = isShinre ? (isShinre.icon||'✨') + ' ' : '';
     this.floorText.setText(
-      `FLOOR ${GameState.floor} / ${MAX_FLOORS}\n` +
-      `${GameState.currentDungeon?.name || 'Dungeon'}`
+      `${shinreIcon}FLOOR ${GameState.floor} / ${maxF}\n` +
+      `${GameState.currentDungeon?.name || 'Dungeon'}` +
+      (GameState.relics?.length ? `\n🏅 Relics: ${GameState.relics.map(r=>r.icon).join('')}` : '')
     );
 
     // Status effects
@@ -5437,8 +6155,14 @@ class GameOverScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     if (this._won) {
-      this.add.text(W/2, H*0.34, 'The Lich King has been defeated!\nDungeonForge is saved!', {
-        fontFamily:'"VT323"', fontSize:'22px', color:'#ffd700', align:'center', lineSpacing:8
+      this.add.text(W/2, H*0.28, 'Amara is free.\nLove returns to Vaeloria.', {
+        fontFamily:'"VT323"', fontSize:'24px', color:'#ffd700', align:'center', lineSpacing:8
+      }).setOrigin(0.5);
+      this.add.text(W/2, H*0.40, 'Valdris — the Hero of another world, who lost\nhis Melissa and never forgave the silence —\nhas finally been allowed to rest.', {
+        fontFamily:'"VT323"', fontSize:'16px', color:'#aaaacc', align:'center', lineSpacing:6
+      }).setOrigin(0.5);
+      this.add.text(W/2, H*0.56, 'Somewhere above, her Hero opens his eyes.\nHe says her name.\nHe does not know why it feels like coming home.\nShe does.', {
+        fontFamily:'"VT323"', fontSize:'17px', color:'#ffaacc', align:'center', lineSpacing:7
       }).setOrigin(0.5);
     }
 
@@ -5456,17 +6180,40 @@ class GameOverScene extends Phaser.Scene {
       fontFamily:'"Press Start 2P"', fontSize:'13px', color:'#ff6b35',
       backgroundColor:'#1a1a3a', padding:{x:18,y:9}
     }).setOrigin(0.5).setInteractive({useHandCursor:true});
+
+    let _restarting = false;
     restartBtn.on('pointerdown', () => {
-      GameState.world  = null;
-      GameState.player = null;
-      GameState.floor  = 1;
-      GameState.turnCount = 0;
-      GameState.inDungeon = false;
-      this.scene.start('Title');
+      if (_restarting) return;
+      _restarting = true;
+      restartBtn.setInteractive(false);
+      restartBtn.setText('[ LOADING... ]');
+      restartBtn.setColor('#888888');
+
+      // Full state reset
+      GameState.world        = null;
+      GameState.player       = null;
+      GameState.companionEntity = null;
+      GameState.companion    = null;
+      GameState.mount        = null;
+      GameState.floor        = 1;
+      GameState.turnCount    = 0;
+      GameState.inDungeon    = false;
+      GameState.floorData    = null;
+      GameState.currentDungeon = null;
+      GameState.worldMap     = null;
+      GameState.messageLog   = [];
+      GameState.targeting    = false;
+      GameState.selectedSpell = null;
+      MarketState.priceFactors = {};
+      MarketState.marketRNG  = null;
+
+      this.time.delayedCall(80, () => this.scene.start('Title'));
     });
 
     this.tweens.add({ targets:restartBtn, scaleX:1.05, scaleY:1.05, duration:900, yoyo:true, repeat:-1 });
-    this.input.keyboard.on('keydown-ENTER', () => restartBtn.emit('pointerdown'));
+    this.input.keyboard.once('keydown-ENTER', () => {
+      if (!_restarting) restartBtn.emit('pointerdown');
+    });
   }
 }
 
@@ -5517,5 +6264,5 @@ class GameOverScene extends Phaser.Scene {
   });
 
   // Expose for debugging
-  window.DungeonForge = { GameState, game, ITEMS, MONSTERS, SPELLS, SKILL_TREE };
+  window.MelissasWrath = { GameState, game, ITEMS, MONSTERS, SPELLS, SKILL_TREE };
 })();

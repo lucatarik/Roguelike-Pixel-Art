@@ -4087,7 +4087,7 @@ class DungeonScene extends Phaser.Scene {
     fd.tiles[ty][tx] = TILE_TYPE.FLOOR;
     if (this.tileSprites[ty]?.[tx]) this.tileSprites[ty][tx].setTexture('tile_floor');
     const inv = GameState.player.get('inventory');
-    const loot = rollLoot(chest.rarity, fd.floor || GameState.floor);
+    const loot = rollLoot(chest.rarity, this.rng, fd.floor || GameState.floor);
     let found = 0;
     for (const item of loot) {
       if (inv.items.length < inv.maxSize) { inv.items.push(item); found++; }

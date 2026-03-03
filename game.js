@@ -2132,7 +2132,16 @@ const GameState = {
           points: p.get('skills')?.points,
         },
         status: p.get('status'),
-      }
+      },
+      worldMapState: {
+        dungeons: this.worldMap?.dungeons,
+        shinres: this.worldMap?.shinres,
+        finalCastle: this.worldMap?.finalCastle,
+        towns: this.worldMap?.towns?.map(t => ({ x:t.x, y:t.y, visited:t.visited })),
+      },
+      shinreCompleted: this.shinreCompleted,
+      relics: this.relics,
+      dungeonCompleteCount: this.dungeonCompleteCount,
     };
   },
 
@@ -2302,6 +2311,21 @@ class TitleScene extends Phaser.Scene {
     GameState.messageLog = data.messageLog || [];
     GameState.world = new World();
     GameState.worldMap = generateWorldMap(GameState.seed);
+    // Restore world map dynamic state (dungeons changed/completed, shinres, relics)
+    if (data.worldMapState) {
+      if (data.worldMapState.dungeons)    GameState.worldMap.dungeons    = data.worldMapState.dungeons;
+      if (data.worldMapState.shinres)     GameState.worldMap.shinres     = data.worldMapState.shinres;
+      if (data.worldMapState.finalCastle) GameState.worldMap.finalCastle = data.worldMapState.finalCastle;
+      if (data.worldMapState.towns && GameState.worldMap.towns) {
+        data.worldMapState.towns.forEach(saved => {
+          const t = GameState.worldMap.towns.find(t2 => t2.x===saved.x && t2.y===saved.y);
+          if (t) t.visited = saved.visited;
+        });
+      }
+    }
+    if (data.shinreCompleted)       GameState.shinreCompleted       = data.shinreCompleted;
+    if (data.relics)                GameState.relics                = data.relics;
+    if (data.dungeonCompleteCount)  GameState.dungeonCompleteCount  = data.dungeonCompleteCount;
     // Restore player
     const p = GameState.world.create().tag('player').tag('actor');
     p.add(C.pos(data.player.pos.x, data.player.pos.y, data.player.pos.floor));
@@ -2410,7 +2434,6 @@ class WorldMapScene extends Phaser.Scene {
     for (const town of wm.towns) {
       const img = this.add.image(town.x*tileSize, town.y*tileSize, 'world_town')
         .setScale(this.tileScale).setOrigin(0).setInteractive({ useHandCursor:true });
-      img.on('pointerdown', () => this.visitTown(town));
       img.on('pointerover', () => {
         this.hoverText.setText(`${town.name}\nRest & Shop\nCompanions & Mounts\nClick to Visit`);
         this.hoverText.setVisible(true);
@@ -2790,6 +2813,8 @@ class WorldMapScene extends Phaser.Scene {
   }
 
   visitTown(town) {
+    if (this._visitingTown) return;
+    this._visitingTown = true;
     town.visited = true;
     this._showTownMenu(town);
   }
@@ -2883,7 +2908,7 @@ class WorldMapScene extends Phaser.Scene {
     }).setOrigin(0.5).setScrollFactor(sf).setDepth(depth));
 
     // Define closeAll FIRST (fixes temporal dead zone)
-    const closeAll = () => elements.forEach(e => e.destroy());
+    const closeAll = () => { elements.forEach(e => e.destroy()); this._visitingTown = false; };
 
     // Companion + Mount buttons above close
     const compBtn = add(this.add.rectangle(ox - 90, oy + PH/2 - 68, 150, 30, 0x0d1a0d)
@@ -3278,7 +3303,8 @@ class WorldMapScene extends Phaser.Scene {
         hp.hp = Math.floor(hp.maxHp * 0.5);
         // Move to nearest dungeon entrance
         const d0 = GameState.worldMap.dungeons[0];
-        if (d0) { pos.x = d0.x + 2; pos.y = d0.y; }
+        const playerPos = GameState.player?.get('pos');
+        if (d0 && playerPos) { playerPos.x = d0.x + 2; playerPos.y = d0.y; }
       }
     }
     this._updateHUD();
@@ -3364,8 +3390,9 @@ class DungeonScene extends Phaser.Scene {
     // FOV
     this._updateFOV();
 
-    // Spell targeting cursor (hidden by default)
-    this.spellCursor = this.add.image(0, 0, 'cursor').setScale(SCALE).setDepth(60).setVisible(false);
+    // Spell targeting cursor (hidden by default) — exactly 1 tile
+    this.spellCursor = this.add.rectangle(0, 0, TS, TS, 0xffffff, 0.15)
+      .setStrokeStyle(2, 0xffff00, 1).setDepth(60).setVisible(false);
     this.entityContainer.add(this.spellCursor);
 
     // Click-to-move: tile hover highlight
@@ -3476,11 +3503,12 @@ class DungeonScene extends Phaser.Scene {
 
     // ALWAYS create a fresh Phaser sprite — the previous one was destroyed
     // when the scene shut down (restart or start from WorldMap).
-    render.sprite = this.add.image(
+    render.sprite = this.add.text(
       pos.x * TS + TS / 2,
       pos.y * TS + TS / 2,
-      'player'
-    ).setScale(SCALE).setDepth(30);
+      '💃',
+      { fontSize: '32px' }
+    ).setOrigin(0.5).setDepth(30);
     this.entityContainer.add(render.sprite);
 
     // Camera follow player
@@ -4570,6 +4598,8 @@ class DungeonScene extends Phaser.Scene {
 
   // ── Dungeon completion ────────────────────────────────────────────
   _onDungeonComplete() {
+    if (this._completingDungeon) return;
+    this._completingDungeon = true;
     const dng = GameState.currentDungeon;
     const wm  = GameState.worldMap;
     const rng = new RNG(GameState.seed ^ Date.now());

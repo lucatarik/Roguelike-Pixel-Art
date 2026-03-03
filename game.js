@@ -1900,6 +1900,202 @@ function generateSprites(scene) {
     px(ctx,4,4,'#ff8800');px(ctx,3,5,'#ffaa00');
   });
 
+  // ── MISSING MONSTER SPRITES ──
+  monsterSprite('mob_rat', '#886644', '#ff2200', '#664422', ctx => {
+    // pointed snout
+    ctx.fillStyle = '#aa8866';
+    ctx.fillRect(4,4,2,2); ctx.fillRect(3,5,2,1);
+    // big ears
+    px(ctx,5,2,'#cc9977'); px(ctx,10,2,'#cc9977');
+    px(ctx,4,1,'#aa7755'); px(ctx,11,1,'#aa7755');
+    // thin tail
+    ctx.fillStyle = '#664422';
+    ctx.fillRect(11,12,4,1); ctx.fillRect(14,11,1,2);
+    // whiskers
+    ctx.fillStyle = '#ccaa88';
+    px(ctx,2,5,'#ccaa88'); px(ctx,3,5,'#ccaa88');
+    px(ctx,12,5,'#ccaa88'); px(ctx,13,5,'#ccaa88');
+  });
+
+  monsterSprite('mob_slime', '#33aa33', '#ffff00', '#228822', ctx => {
+    // blobby body — override with rounded shape
+    ctx.fillStyle = '#33cc33';
+    ctx.fillRect(3,6,10,7); ctx.fillRect(4,5,8,2); ctx.fillRect(5,4,6,1);
+    ctx.fillRect(3,13,2,1); ctx.fillRect(11,13,2,1);
+    // bubbles
+    ctx.fillStyle = '#66ff66';
+    px(ctx,6,7,'#66ff66'); px(ctx,10,8,'#66ff66'); px(ctx,8,11,'#66ff66');
+    // drip
+    ctx.fillStyle = '#22aa22';
+    px(ctx,7,13,'#22aa22'); px(ctx,9,13,'#22aa22');
+  });
+
+  monsterSprite('mob_kobold', '#88aa22', '#ff4400', '#667711', ctx => {
+    // lizard snout
+    ctx.fillStyle = '#aabb33';
+    ctx.fillRect(5,3,6,2); ctx.fillRect(4,4,2,1); ctx.fillRect(10,4,2,1);
+    // scales on back
+    ctx.fillStyle = '#667711';
+    [5,7,9].forEach(x => px(ctx,x,5,'#556600'));
+    // tail
+    ctx.fillStyle = '#88aa22';
+    ctx.fillRect(11,11,3,2); ctx.fillRect(13,10,2,1);
+    // claws
+    ctx.fillStyle = '#cccc88';
+    px(ctx,4,12,'#cccc88'); px(ctx,5,13,'#cccc88');
+    px(ctx,10,12,'#cccc88'); px(ctx,11,13,'#cccc88');
+  });
+
+  monsterSprite('mob_zombie', '#668855', '#ff0000', '#445533', ctx => {
+    // tattered clothing
+    ctx.fillStyle = '#334422';
+    ctx.fillRect(4,7,8,5); ctx.fillRect(3,8,2,4); ctx.fillRect(11,8,2,4);
+    // rot spots
+    ctx.fillStyle = '#223311';
+    px(ctx,6,8,'#223311'); px(ctx,9,9,'#223311'); px(ctx,7,11,'#223311');
+    // outstretched arms
+    ctx.fillStyle = '#668855';
+    ctx.fillRect(2,5,3,2); ctx.fillRect(11,5,3,2);
+    // exposed bone
+    ctx.fillStyle = '#bbbbaa';
+    px(ctx,3,6,'#bbbbaa'); px(ctx,12,6,'#bbbbaa');
+  });
+
+  monsterSprite('mob_gnoll', '#aa8844', '#ff4400', '#886622', ctx => {
+    // hyena muzzle
+    ctx.fillStyle = '#cc9955';
+    ctx.fillRect(5,3,6,3); ctx.fillRect(4,4,2,2); ctx.fillRect(10,4,2,2);
+    // pointed ears
+    px(ctx,5,1,'#aa7733'); px(ctx,6,0,'#aa7733');
+    px(ctx,9,1,'#aa7733'); px(ctx,10,0,'#aa7733');
+    // spotted fur
+    ctx.fillStyle = '#664422';
+    px(ctx,6,6,'#664422'); px(ctx,9,7,'#664422'); px(ctx,7,9,'#664422');
+    // weapon (spear)
+    ctx.fillStyle = '#8B5A2A';
+    ctx.fillRect(13,1,1,12);
+    ctx.fillStyle = '#aaaaaa';
+    ctx.fillRect(12,0,3,2);
+  });
+
+  monsterSprite('mob_wraith', '#aaccff', '#ffffff', '#6688cc', ctx => {
+    // ghostly wisp body — override base with translucent-like effect
+    ctx.fillStyle = '#8899cc';
+    ctx.fillRect(4,3,8,9); ctx.fillRect(3,5,10,5);
+    // tattered edges
+    ctx.fillStyle = '#aaccff';
+    [4,6,8,10].forEach(x => px(ctx,x,12,'#aaccff'));
+    [3,5,7,9,11].forEach(x => px(ctx,x,11,'#8899cc'));
+    // spectral glow
+    ctx.fillStyle = '#ddeeff';
+    px(ctx,7,5,'#ddeeff'); px(ctx,8,5,'#ddeeff');
+    px(ctx,7,6,'#ddeeff'); px(ctx,8,6,'#ddeeff');
+    // wispy arms
+    ctx.fillStyle = '#6688cc';
+    ctx.fillRect(1,5,3,2); ctx.fillRect(12,5,3,2);
+    px(ctx,1,4,'#aaccff'); px(ctx,14,4,'#aaccff');
+  });
+
+  monsterSprite('mob_wyvern', '#228844', '#ff4400', '#114422', ctx => {
+    // wings
+    ctx.fillStyle = '#115533';
+    ctx.fillRect(0,3,4,7); ctx.fillRect(12,3,4,7);
+    ctx.fillStyle = '#0d3322';
+    ctx.fillRect(1,4,2,5); ctx.fillRect(13,4,2,5);
+    // tail with spike
+    ctx.fillStyle = '#228844';
+    ctx.fillRect(12,11,3,2); ctx.fillRect(14,10,2,1);
+    px(ctx,15,9,'#44cc88');
+    // neck frill
+    ctx.fillStyle = '#44cc88';
+    px(ctx,6,2,'#44cc88'); px(ctx,9,2,'#44cc88');
+    px(ctx,7,1,'#44cc88'); px(ctx,8,1,'#44cc88');
+  });
+
+  monsterSprite('mob_minotaur', '#884422', '#ff2200', '#662211', ctx => {
+    // wide bull head
+    ctx.fillStyle = '#995533';
+    ctx.fillRect(3,1,10,5);
+    // horns
+    ctx.fillStyle = '#ccaa55';
+    ctx.fillRect(2,0,2,3); ctx.fillRect(12,0,2,3);
+    px(ctx,1,0,'#ccaa55'); px(ctx,14,0,'#ccaa55');
+    // nose ring
+    ctx.fillStyle = '#ffd700';
+    px(ctx,7,4,'#ffd700'); px(ctx,8,4,'#ffd700');
+    // massive torso
+    ctx.fillStyle = '#884422';
+    ctx.fillRect(3,6,10,7);
+    ctx.fillRect(1,7,3,5); ctx.fillRect(12,7,3,5);
+    // axe
+    ctx.fillStyle = '#888888';
+    ctx.fillRect(13,3,2,5);
+    ctx.fillRect(12,2,4,3);
+  });
+
+  monsterSprite('mob_assassin', '#334455', '#ff0088', '#223344', ctx => {
+    // dark hood/cloak
+    ctx.fillStyle = '#1a2233';
+    ctx.fillRect(3,1,10,4); ctx.fillRect(2,4,12,9);
+    // mask
+    ctx.fillStyle = '#223344';
+    ctx.fillRect(5,3,6,2);
+    // daggers
+    ctx.fillStyle = '#aaaacc';
+    ctx.fillRect(2,5,1,5); ctx.fillRect(13,5,1,5);
+    ctx.fillStyle = '#ccccff';
+    px(ctx,2,4,'#ccccff'); px(ctx,13,4,'#ccccff');
+    // glowing eyes
+    ctx.fillStyle = '#ff0088';
+    px(ctx,6,3,'#ff0088'); px(ctx,9,3,'#ff0088');
+  });
+
+  monsterSprite('mob_demon', '#cc2200', '#ffaa00', '#881100', ctx => {
+    // horns
+    ctx.fillStyle = '#660000';
+    ctx.fillRect(4,0,2,3); ctx.fillRect(10,0,2,3);
+    px(ctx,3,0,'#880000'); px(ctx,12,0,'#880000');
+    // wings
+    ctx.fillStyle = '#880000';
+    ctx.fillRect(0,4,4,6); ctx.fillRect(12,4,4,6);
+    ctx.fillStyle = '#550000';
+    ctx.fillRect(1,5,2,4); ctx.fillRect(13,5,2,4);
+    // claws
+    ctx.fillStyle = '#440000';
+    px(ctx,4,13,'#440000'); px(ctx,6,14,'#440000');
+    px(ctx,9,13,'#440000'); px(ctx,11,14,'#440000');
+    // fiery glow on chest
+    ctx.fillStyle = '#ff4400';
+    px(ctx,7,6,'#ff4400'); px(ctx,8,6,'#ff4400');
+    px(ctx,7,7,'#ff6600'); px(ctx,8,7,'#ff6600');
+  });
+
+  monsterSprite('mob_darknight', '#222244', '#ff4444', '#111122', ctx => {
+    // full plate helm
+    ctx.fillStyle = '#334455';
+    ctx.fillRect(4,1,8,5); ctx.fillRect(3,2,10,3);
+    // visor slit
+    ctx.fillStyle = '#ff4444';
+    ctx.fillRect(5,3,6,1);
+    // heavy shoulder pads
+    ctx.fillStyle = '#334455';
+    ctx.fillRect(1,5,4,4); ctx.fillRect(11,5,4,4);
+    // dark armor body
+    ctx.fillStyle = '#222244';
+    ctx.fillRect(3,6,10,7);
+    ctx.fillStyle = '#333366';
+    // armor trim
+    ctx.fillRect(3,6,1,7); ctx.fillRect(12,6,1,7);
+    ctx.fillRect(3,10,10,1);
+    // great sword
+    ctx.fillStyle = '#aaaacc';
+    ctx.fillRect(13,1,2,10);
+    ctx.fillStyle = '#ccccff';
+    px(ctx,13,0,'#ccccff'); px(ctx,14,0,'#ccccff');
+    ctx.fillStyle = '#ffd700';
+    ctx.fillRect(12,6,4,1); // crossguard
+  });
+
   monsterSprite('boss_lich', '#220044', '#ffee00', '#110022', ctx => {
     // crown with gems
     ctx.fillStyle = '#888800';
@@ -3499,8 +3695,15 @@ class DungeonScene extends Phaser.Scene {
     const p = GameState.player;
     if (!p) return;
     const pos = p.get('pos');
-    pos.x = fd.startX;
-    pos.y = fd.startY;
+    // When ascending stairs, spawn at the down-stairs tile of the previous floor
+    if (GameState._spawnAtStairsDown && fd.stairsDown) {
+      pos.x = fd.stairsDown.x;
+      pos.y = fd.stairsDown.y;
+      GameState._spawnAtStairsDown = false;
+    } else {
+      pos.x = fd.startX;
+      pos.y = fd.startY;
+    }
     pos.floor = GameState.floor;
 
     if (!p.get('render')) {
@@ -3971,9 +4174,9 @@ class DungeonScene extends Phaser.Scene {
       const clickedMon = monsters.find(m => { const mp=m.get('pos'); return mp && mp.x===tx && mp.y===ty; });
       if (clickedMon) {
         const mp = clickedMon.get('pos');
-        const dist = Math.abs(mp.x - pos0.x) + Math.abs(mp.y - pos0.y);
-        if (dist <= 1) {
-          // Adjacent: attack immediately
+        const chebyshev = Math.max(Math.abs(mp.x - pos0.x), Math.abs(mp.y - pos0.y));
+        if (chebyshev <= 1) {
+          // Adjacent (including diagonal): attack immediately
           this._attackMonster(clickedMon);
           return;
         }
@@ -3985,11 +4188,12 @@ class DungeonScene extends Phaser.Scene {
           if (t === TILE_TYPE.WALL && !GameState.mount?.wallWalk) return false;
           return true;
         };
-        // Try to walk adjacent to the monster
+        // Try to walk adjacent to the monster (stop one step before)
         const path0 = astar(fd0.tiles, pos0.x, pos0.y, mp.x, mp.y, passable0, 60);
-        if (path0 && path0.length > 2) {
+        if (path0 && path0.length >= 2) {
           this._clickPath = path0.slice(1, path0.length - 1); // stop one before monster
-          this._stepClickPath();
+          if (this._clickPath.length > 0) this._stepClickPath();
+          else this._attackMonster(clickedMon); // already adjacent via path
         }
         return;
       }
@@ -4014,15 +4218,16 @@ class DungeonScene extends Phaser.Scene {
 
       // Click on chest tile
       if (clickedTile === TILE_TYPE.CHEST) {
-        const dist = Math.abs(tx - pos.x) + Math.abs(ty - pos.y);
-        if (dist <= 1) { this._openChestAt(tx, ty); return; }
+        const chebyshevC = Math.max(Math.abs(tx - pos.x), Math.abs(ty - pos.y));
+        if (chebyshevC <= 1) { this._openChestAt(tx, ty); return; }
         // Walk adjacent to chest then open
         const pathC = astar(fd.tiles, pos.x, pos.y, tx, ty,
           (x,y)=>fd.tiles[y]?.[x]!==undefined&&fd.tiles[y][x]!==TILE_TYPE.WALL, 60);
         if (pathC && pathC.length > 1) {
           this._clickPath = pathC.slice(1, pathC.length - 1);
           this._clickTarget = { type:'chest', x:tx, y:ty };
-          this._stepClickPath();
+          if (this._clickPath.length > 0) this._stepClickPath();
+          else this._openChestAt(tx, ty);
         }
         return;
       }
@@ -4758,6 +4963,7 @@ class DungeonScene extends Phaser.Scene {
       GameState.floor--;
       GameState.addMessage(`Ascending to floor ${GameState.floor}...`, '#88ff88');
       GameState.floorData = generateFloor(GameState.floor, GameState.seed ^ (GameState.currentDungeon?.id||0));
+      GameState._spawnAtStairsDown = true; // spawn at down-stairs (where we came from)
       this._cleanupForRestart();
       this.scene.restart();
     } else {
@@ -5324,7 +5530,7 @@ class DungeonScene extends Phaser.Scene {
     if (!render?.sprite) return;
     render.sprite.setPosition(mPos.x*TS+TS/2, mPos.y*TS+TS/2);
     if (render.hpBg)  render.hpBg.setPosition(mPos.x*TS+TS/2, mPos.y*TS+2);
-    if (render.hpBar) render.hpBar.setX(mPos.x*TS+2);
+    if (render.hpBar) render.hpBar.setPosition(mPos.x*TS+2, mPos.y*TS+2);
   }
 
   _updateFOV() {

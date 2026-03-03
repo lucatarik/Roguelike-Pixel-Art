@@ -2558,14 +2558,14 @@ class WorldMapScene extends Phaser.Scene {
       GameState.player = p;
     }
 
-    // Player marker
+    // Player marker — Melissa 💃
     const ppos = GameState.player.get('pos');
     this.tileSize = tileSize; // store for update()
-    this.playerMarker = this.add.image(
+    this.playerMarker = this.add.text(
       ppos.x*tileSize + tileSize/2,
       ppos.y*tileSize + tileSize/2,
-      'world_player'
-    ).setScale(this.tileScale).setDepth(20);
+      '💃', { fontSize: '20px' }
+    ).setOrigin(0.5).setDepth(20);
     this.mapContainer.add(this.playerMarker);
 
     // Camera follows player sprite
@@ -3204,13 +3204,20 @@ class WorldMapScene extends Phaser.Scene {
     const ts = this.tileSize;
     const COUNT = 24;
     const WORLD_MON_TYPES = [
+      { id:'monkey',  name:'Monkey Troop', icon:'🐒', hp:22,  atk:7,  def:1,  xp:18,  gold:5,  color:0xaa8844 },
+      { id:'gorilla', name:'Gorilla',      icon:'🦍', hp:50,  atk:13, def:5,  xp:45,  gold:10, color:0x887766 },
       { id:'wolf',    name:'Wolf Pack',    icon:'🐺', hp:30,  atk:8,  def:2,  xp:20,  gold:5,  color:0xaaaaaa },
-      { id:'bandit',  name:'Bandits',      icon:'🗡', hp:25,  atk:10, def:3,  xp:25,  gold:15, color:0x886644 },
-      { id:'harpy',   name:'Harpy',        icon:'🦅', hp:20,  atk:7,  def:1,  xp:18,  gold:8,  color:0x88aaff },
-      { id:'ogre',    name:'Ogre',         icon:'👹', hp:60,  atk:14, def:6,  xp:50,  gold:20, color:0x448844 },
-      { id:'worm',    name:'Giant Worm',   icon:'🐛', hp:35,  atk:9,  def:4,  xp:30,  gold:10, color:0x886600 },
-      { id:'scorpion',name:'Scorpion',     icon:'🦂', hp:22,  atk:11, def:2,  xp:22,  gold:8,  color:0xffaa44 },
-      { id:'drake',   name:'Drake',        icon:'🐲', hp:80,  atk:18, def:8,  xp:80,  gold:40, color:0xff6622 },
+      { id:'cat',     name:'Wild Cat',     icon:'🐱', hp:18,  atk:9,  def:1,  xp:15,  gold:4,  color:0xddaa88 },
+      { id:'horse',   name:'Wild Horse',   icon:'🐴', hp:40,  atk:10, def:3,  xp:30,  gold:8,  color:0xaa8866 },
+      { id:'zebra',   name:'Zebra Herd',   icon:'🦓', hp:35,  atk:8,  def:3,  xp:25,  gold:7,  color:0xdddddd },
+      { id:'deer',    name:'Stag',         icon:'🦌', hp:28,  atk:7,  def:2,  xp:20,  gold:6,  color:0xcc9966 },
+      { id:'bull',    name:'Wild Bull',    icon:'🐂', hp:55,  atk:14, def:6,  xp:50,  gold:15, color:0x774422 },
+      { id:'boar',    name:'Boar Pack',    icon:'🐖', hp:32,  atk:11, def:4,  xp:28,  gold:9,  color:0xaa6644 },
+      { id:'ram',     name:'Ram',          icon:'🐏', hp:30,  atk:10, def:4,  xp:25,  gold:7,  color:0xbbbbaa },
+      { id:'camel',   name:'Camel',        icon:'🐪', hp:45,  atk:9,  def:5,  xp:35,  gold:12, color:0xddbb66 },
+      { id:'elephant',name:'Elephant',     icon:'🐘', hp:90,  atk:20, def:10, xp:90,  gold:40, color:0x888888 },
+      { id:'rhino',   name:'Rhino',        icon:'🦏', hp:80,  atk:18, def:9,  xp:80,  gold:35, color:0x999977 },
+      { id:'mouse',   name:'Giant Mouse',  icon:'🐭', hp:12,  atk:5,  def:1,  xp:10,  gold:3,  color:0xddaaaa },
     ];
     for (let i=0; i<COUNT; i++) {
       let wx, wy, att=0;
@@ -3395,8 +3402,8 @@ class DungeonScene extends Phaser.Scene {
       .setStrokeStyle(2, 0xffff00, 1).setDepth(60).setVisible(false);
     this.entityContainer.add(this.spellCursor);
 
-    // Click-to-move: tile hover highlight
-    this.tileHighlight = this.add.rectangle(0, 0, TS*SCALE-2, TS*SCALE-2, 0xffffff, 0)
+    // Click-to-move: tile hover highlight (exactly 1 tile)
+    this.tileHighlight = this.add.rectangle(0, 0, TS-2, TS-2, 0xffffff, 0)
       .setStrokeStyle(1, 0xffffff, 0.35).setDepth(58).setVisible(false);
     this.entityContainer.add(this.tileHighlight);
     this.input.on('pointermove', (pointer) => {
@@ -4680,8 +4687,13 @@ class DungeonScene extends Phaser.Scene {
       }
     }
 
-    // Return to world map
+    // Return to world map — restore player to dungeon's world coords
     GameState.inDungeon = false;
+    const _dngExit = GameState.currentDungeon;
+    if (_dngExit) {
+      const _pp = GameState.player?.get('pos');
+      if (_pp) { _pp.x = _dngExit.x; _pp.y = _dngExit.y; }
+    }
     GameState.currentDungeon = null;
     GameState.floor = 1;
     const pr = GameState.player?.get('render');
@@ -4723,6 +4735,13 @@ class DungeonScene extends Phaser.Scene {
       if (GameState.floor <= 1) {
         GameState.addMessage('Melissa returns to the surface...', '#88ff88');
         GameState.inDungeon = false;
+        // Restore player to dungeon's world map coords
+        const _dngUp = GameState.currentDungeon;
+        if (_dngUp) {
+          const _ppUp = GameState.player?.get('pos');
+          if (_ppUp) { _ppUp.x = _dngUp.x; _ppUp.y = _dngUp.y; }
+        }
+        GameState.currentDungeon = null;
         // Null all Phaser refs so DungeonScene.create() rebuilds them clean on next entry
         const pr = GameState.player?.get('render');
         if (pr) { pr.sprite = null; pr.hpBg = null; pr.hpBar = null; }
@@ -5491,28 +5510,59 @@ class DungeonScene extends Phaser.Scene {
   }
 
   _showDamageNumber(tx, ty, damage, color='#ff4444') {
+    // Cap active popups at 6
+    if (!this._activePopups) this._activePopups = [];
+    if (this._activePopups.length >= 6) {
+      const oldest = this._activePopups.shift();
+      this.tweens.killTweensOf(oldest);
+      oldest.destroy();
+    }
+    const isMobile = this.sys.game.device.os.android || this.sys.game.device.os.iOS;
     const colorStr = typeof color === 'number' ?
       '#' + color.toString(16).padStart(6,'0') : color;
     const txt = this.add.text(tx*TS+TS/2, ty*TS, `-${damage}`, {
-      fontFamily:'"Press Start 2P"', fontSize:'8px', color:colorStr,
-      stroke:'#000', strokeThickness:2,
-    }).setOrigin(0.5).setDepth(60);
+      fontFamily:'"Press Start 2P"',
+      fontSize: isMobile ? '6px' : '8px',
+      color: colorStr,
+      stroke:'#000', strokeThickness: isMobile ? 1 : 2,
+      alpha: isMobile ? 0.7 : 1,
+    }).setOrigin(0.5).setDepth(60).setAlpha(isMobile ? 0.7 : 1);
+    this._activePopups.push(txt);
     this.tweens.add({
       targets:txt, y:ty*TS-20, alpha:0, duration:800,
-      onComplete:()=>txt.destroy()
+      onComplete:() => {
+        const idx = this._activePopups ? this._activePopups.indexOf(txt) : -1;
+        if (idx !== -1) this._activePopups.splice(idx, 1);
+        txt.destroy();
+      }
     });
   }
 
   _showFloatingText(tx, ty, text, color='#ffffff') {
+    // Cap active popups at 6
+    if (!this._activePopups) this._activePopups = [];
+    if (this._activePopups.length >= 6) {
+      const oldest = this._activePopups.shift();
+      this.tweens.killTweensOf(oldest);
+      oldest.destroy();
+    }
+    const isMobile = this.sys.game.device.os.android || this.sys.game.device.os.iOS;
     const colorStr = typeof color === 'number' ?
       '#' + color.toString(16).padStart(6,'0') : color;
     const txt = this.add.text(tx*TS+TS/2, ty*TS, text, {
-      fontFamily:'"VT323"', fontSize:'16px', color:colorStr,
-      stroke:'#000', strokeThickness:2,
-    }).setOrigin(0.5).setDepth(60);
+      fontFamily:'"VT323"',
+      fontSize: isMobile ? '12px' : '16px',
+      color: colorStr,
+      stroke:'#000', strokeThickness: isMobile ? 1 : 2,
+    }).setOrigin(0.5).setDepth(60).setAlpha(isMobile ? 0.65 : 1);
+    this._activePopups.push(txt);
     this.tweens.add({
       targets:txt, y:ty*TS-30, alpha:0, duration:1000,
-      onComplete:()=>txt.destroy()
+      onComplete:() => {
+        const idx = this._activePopups ? this._activePopups.indexOf(txt) : -1;
+        if (idx !== -1) this._activePopups.splice(idx, 1);
+        txt.destroy();
+      }
     });
   }
 

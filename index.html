@@ -129,6 +129,18 @@
 
     @keyframes toast-in { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
     @keyframes toast-out { from { opacity: 1; } to { opacity: 0; } }
+
+    /* Mobile: smaller, more transparent toasts */
+    @media (max-width: 768px), (pointer: coarse) {
+      #toast-container { top: 8px; right: 8px; gap: 4px; max-width: 50vw; }
+      .toast {
+        font-size: 12px;
+        padding: 4px 8px;
+        background: rgba(10,10,20,0.55);
+        border-width: 1px;
+        box-shadow: none;
+      }
+    }
   </style>
 </head>
 <body>

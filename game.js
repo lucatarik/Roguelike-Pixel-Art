@@ -1065,9 +1065,10 @@ function generateFloor(floor, seed) {
     }
   }
 
-  // Procedural room events
+  // Procedural room events — exclude stair rooms to avoid overlap
   const events = [];
-  const eventRooms = rng.shuffle([...rooms]).slice(0, rng.int(1,3));
+  const stairRoomSet = new Set([upRoom, downRoom]);
+  const eventRooms = rng.shuffle([...rooms].filter(r => !stairRoomSet.has(r))).slice(0, rng.int(1,3));
   for (const er of eventRooms) {
     const ex = Math.floor((er.x1+er.x2)/2);
     const ey = Math.floor((er.y1+er.y2)/2);
@@ -4190,8 +4191,8 @@ class DungeonScene extends Phaser.Scene {
         };
         // Try to walk adjacent to the monster (stop one step before)
         const path0 = astar(fd0.tiles, pos0.x, pos0.y, mp.x, mp.y, passable0, 60);
-        if (path0 && path0.length >= 2) {
-          this._clickPath = path0.slice(1, path0.length - 1); // stop one before monster
+        if (path0 && path0.length >= 1) {
+          this._clickPath = path0.slice(0, path0.length - 1); // stop one before monster
           if (this._clickPath.length > 0) this._stepClickPath();
           else this._attackMonster(clickedMon); // already adjacent via path
         }
@@ -4208,8 +4209,8 @@ class DungeonScene extends Phaser.Scene {
         // Walk to it then use
         const pathS = astar(fd.tiles, pos.x, pos.y, tx, ty,
           (x,y)=>fd.tiles[y]?.[x]!==undefined&&fd.tiles[y][x]!==TILE_TYPE.WALL, 60);
-        if (pathS && pathS.length > 1) {
-          this._clickPath = pathS.slice(1);
+        if (pathS && pathS.length > 0) {
+          this._clickPath = pathS.slice();
           this._clickTarget = { type:'stairs', x:tx, y:ty };
           this._stepClickPath();
         }
@@ -4223,8 +4224,8 @@ class DungeonScene extends Phaser.Scene {
         // Walk adjacent to chest then open
         const pathC = astar(fd.tiles, pos.x, pos.y, tx, ty,
           (x,y)=>fd.tiles[y]?.[x]!==undefined&&fd.tiles[y][x]!==TILE_TYPE.WALL, 60);
-        if (pathC && pathC.length > 1) {
-          this._clickPath = pathC.slice(1, pathC.length - 1);
+        if (pathC && pathC.length > 0) {
+          this._clickPath = pathC.slice(0, pathC.length - 1);
           this._clickTarget = { type:'chest', x:tx, y:ty };
           if (this._clickPath.length > 0) this._stepClickPath();
           else this._openChestAt(tx, ty);
@@ -4241,8 +4242,8 @@ class DungeonScene extends Phaser.Scene {
         return true;
       };
       const path = astar(fd.tiles, pos.x, pos.y, tx, ty, passable, 60);
-      if (path && path.length > 1) {
-        this._clickPath = path.slice(1); // drop the start node
+      if (path && path.length > 0) {
+        this._clickPath = path.slice(); // astar already excludes start node
         this._clickTarget = null;
         this._stepClickPath(); // start walking
       }
@@ -4299,7 +4300,15 @@ class DungeonScene extends Phaser.Scene {
       return;
     }
 
+    const hpComp = GameState.player?.get('health');
+    const hpBefore = hpComp ? hpComp.hp : null;
     this._tryMove(dx, dy);
+    const hpAfter = hpComp ? hpComp.hp : null;
+    if (hpBefore !== null && hpAfter !== null && hpAfter < hpBefore) {
+      this._clickPath = null;
+      this._clickTarget = null;
+      return;
+    }
     if (this._clickPath && this._clickPath.length > 0) {
       this.time.delayedCall(110, () => this._stepClickPath());
     } else {

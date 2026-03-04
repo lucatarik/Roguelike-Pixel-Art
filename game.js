@@ -1729,6 +1729,25 @@ function generateSprites(scene) {
     px(ctx,3,4,'#888');px(ctx,12,4,'#888');
   });
 
+  makeSprite('tile_chest_open', (ctx) => {
+    // Base (shorter, opened)
+    ctx.fillStyle = '#6B3A2A';
+    ctx.fillRect(2,9,12,5);
+    ctx.fillStyle = '#8B5A3A';
+    ctx.fillRect(3,10,10,4);
+    // Open lid (leaning back)
+    ctx.fillStyle = '#6B3A2A';
+    ctx.fillRect(1,3,14,4);
+    ctx.fillStyle = '#ffd700';
+    ctx.fillRect(1,2,14,2); ctx.fillRect(0,3,2,4); ctx.fillRect(14,3,2,4);
+    ctx.fillRect(2,9,1,5); ctx.fillRect(13,9,1,5);
+    // Dark interior
+    ctx.fillStyle = '#1a0d07';
+    ctx.fillRect(3,10,10,3);
+    // Hinges
+    px(ctx,3,8,'#888'); px(ctx,12,8,'#888');
+  });
+
   makeSprite('tile_trap', (ctx) => {
     ctx.fillStyle = '#1a1a2e';
     ctx.fillRect(0,0,16,16);
@@ -4011,9 +4030,16 @@ class DungeonScene extends Phaser.Scene {
       fontFamily:'"Press Start 2P"', fontSize:'6px', color:'#ffd700'
     }).setScrollFactor(0).setDepth(97);
 
-    // Toggle: press M to show/hide minimap
+    // Toggle: press M to show/hide minimap; Shift+M = [DEBUG] +200 skill points
     this._mmVisible = true;
-    this.input.keyboard.on('keydown-M', () => {
+    this.input.keyboard.on('keydown-M', (event) => {
+      if (event.shiftKey) {
+        const sk = GameState.player?.get('skills');
+        if (sk) sk.points += 200;
+        GameState.addMessage('[DEBUG] +200 Skill Points', '#ffaa00');
+        window.showToast('+200 Skill Points', 'rare');
+        return;
+      }
       this._mmVisible = !this._mmVisible;
       this._mmBg.setVisible(this._mmVisible);
       this._mmImage.setVisible(this._mmVisible);
@@ -4112,20 +4138,31 @@ class DungeonScene extends Phaser.Scene {
 
     this.moveKeys = moveKeys;
     this._keyRepeatTimer = null;
-    this._lastMoveDir = null;
+    this._keyRepeatDir = null;
 
     this.input.keyboard.on('keydown', (event) => {
       if (!this.playerTurn || this.animating) return;
+
+      // ── Shift+key hidden debug shortcuts ──────────────────────────
+      if (event.shiftKey) {
+        switch(event.code) {
+          case 'KeyK': { const st=GameState.player?.get('stats'); if(st){st.xp+=2000;this._checkLevelUp(st);this._updateHUD();} GameState.addMessage('[DEBUG] +2000 XP','#ffaa00'); return; }
+          case 'KeyL': { const inv=GameState.player?.get('inventory'); if(inv){inv.gold+=2000;this._updateHUD();} GameState.addMessage('[DEBUG] +2000 Gold','#ffaa00'); return; }
+          case 'KeyP': this._openDebugItemMenu(); return;
+          case 'KeyI': this._openDebugSpellMenu(); return;
+        }
+      }
+
       switch(event.code) {
-        case 'ArrowUp':   case 'KeyW': case 'Numpad8': this._clickPath=null; this._tryMove(0,-1); break;
-        case 'ArrowDown': case 'KeyS': case 'Numpad2': this._clickPath=null; this._tryMove(0, 1); break;
-        case 'ArrowLeft': case 'KeyA': case 'Numpad4': this._clickPath=null; this._tryMove(-1,0); break;
-        case 'ArrowRight':case 'KeyD': case 'Numpad6': this._clickPath=null; this._tryMove(1, 0); break;
+        case 'ArrowUp':   case 'KeyW': case 'Numpad8': this._clickPath=null; this._startKeyRepeat(0,-1);  this._tryMove(0,-1); break;
+        case 'ArrowDown': case 'KeyS': case 'Numpad2': this._clickPath=null; this._startKeyRepeat(0, 1);  this._tryMove(0, 1); break;
+        case 'ArrowLeft': case 'KeyA': case 'Numpad4': this._clickPath=null; this._startKeyRepeat(-1,0);  this._tryMove(-1,0); break;
+        case 'ArrowRight':case 'KeyD': case 'Numpad6': this._clickPath=null; this._startKeyRepeat( 1,0);  this._tryMove(1, 0); break;
         // Diagonal
-        case 'Numpad7': this._tryMove(-1,-1); break;
-        case 'Numpad9': this._tryMove( 1,-1); break;
-        case 'Numpad1': this._tryMove(-1, 1); break;
-        case 'Numpad3': this._tryMove( 1, 1); break;
+        case 'Numpad7': this._startKeyRepeat(-1,-1); this._tryMove(-1,-1); break;
+        case 'Numpad9': this._startKeyRepeat( 1,-1); this._tryMove( 1,-1); break;
+        case 'Numpad1': this._startKeyRepeat(-1, 1); this._tryMove(-1, 1); break;
+        case 'Numpad3': this._startKeyRepeat( 1, 1); this._tryMove( 1, 1); break;
         // Wait
         case 'Space': case 'Period': case 'Numpad5': this._endPlayerTurn(); break;
         // Pickup
@@ -4144,10 +4181,23 @@ class DungeonScene extends Phaser.Scene {
             GameState.addMessage('Targeting cancelled.', '#888888');
           }
           break;
-        // Open Inventory
+        // Open Inventory (Shift+I opens debug spell/skill menu, handled above)
         case 'KeyI': InventoryScene._page='inventory'; this._clickPath=null; this.scene.launch('Inventory'); break;
         // Skill tree — use T (S is reserved for movement)
         case 'KeyT': this._clickPath=null; this.scene.launch('SkillTree'); break;
+      }
+    });
+
+    // Stop key-repeat on key release
+    this.input.keyboard.on('keyup', (event) => {
+      switch(event.code) {
+        case 'ArrowUp': case 'KeyW': case 'Numpad8':
+        case 'ArrowDown': case 'KeyS': case 'Numpad2':
+        case 'ArrowLeft': case 'KeyA': case 'Numpad4':
+        case 'ArrowRight': case 'KeyD': case 'Numpad6':
+        case 'Numpad7': case 'Numpad9': case 'Numpad1': case 'Numpad3':
+          this._stopKeyRepeat();
+          break;
       }
     });
 
@@ -4183,10 +4233,12 @@ class DungeonScene extends Phaser.Scene {
         }
         // Not adjacent: path-find next to the monster then attack
         const fd0 = GameState.floorData;
+        const blocked0 = this._monsterBlockedSet(clickedMon.id);
         const passable0 = (x,y) => {
           const t = fd0.tiles[y]?.[x];
           if (t === undefined) return false;
           if (t === TILE_TYPE.WALL && !GameState.mount?.wallWalk) return false;
+          if (blocked0.has(`${x},${y}`)) return false;
           return true;
         };
         // Try to walk adjacent to the monster (stop one step before)
@@ -4207,8 +4259,9 @@ class DungeonScene extends Phaser.Scene {
         const dist = Math.abs(tx - pos.x) + Math.abs(ty - pos.y);
         if (dist <= 1) { this._useStairs(); return; }
         // Walk to it then use
+        const blockedS = this._monsterBlockedSet();
         const pathS = astar(fd.tiles, pos.x, pos.y, tx, ty,
-          (x,y)=>fd.tiles[y]?.[x]!==undefined&&fd.tiles[y][x]!==TILE_TYPE.WALL, 60);
+          (x,y)=>fd.tiles[y]?.[x]!==undefined&&fd.tiles[y][x]!==TILE_TYPE.WALL&&!blockedS.has(`${x},${y}`), 60);
         if (pathS && pathS.length > 0) {
           this._clickPath = pathS.slice();
           this._clickTarget = { type:'stairs', x:tx, y:ty };
@@ -4222,8 +4275,9 @@ class DungeonScene extends Phaser.Scene {
         const chebyshevC = Math.max(Math.abs(tx - pos.x), Math.abs(ty - pos.y));
         if (chebyshevC <= 1) { this._openChestAt(tx, ty); return; }
         // Walk adjacent to chest then open
+        const blockedC = this._monsterBlockedSet();
         const pathC = astar(fd.tiles, pos.x, pos.y, tx, ty,
-          (x,y)=>fd.tiles[y]?.[x]!==undefined&&fd.tiles[y][x]!==TILE_TYPE.WALL, 60);
+          (x,y)=>fd.tiles[y]?.[x]!==undefined&&fd.tiles[y][x]!==TILE_TYPE.WALL&&!blockedC.has(`${x},${y}`), 60);
         if (pathC && pathC.length > 0) {
           this._clickPath = pathC.slice(0, pathC.length - 1);
           this._clickTarget = { type:'chest', x:tx, y:ty };
@@ -4233,12 +4287,14 @@ class DungeonScene extends Phaser.Scene {
         return;
       }
 
+      const blockedP = this._monsterBlockedSet();
       const passable = (x, y) => {
         const t = fd.tiles[y]?.[x];
         const mount = GameState.mount;
         if (t === undefined) return false;
         if (t === TILE_TYPE.WALL && !mount?.wallWalk) return false;
         if (t === TILE_TYPE.LAVA && !mount?.lavaImmune) return false;
+        if (blockedP.has(`${x},${y}`)) return false;
         return true;
       };
       const path = astar(fd.tiles, pos.x, pos.y, tx, ty, passable, 60);
@@ -4334,7 +4390,7 @@ class DungeonScene extends Phaser.Scene {
     if (!chest) { GameState.addMessage('Nothing here.', '#888888'); return; }
     chest.opened = true;
     fd.tiles[ty][tx] = TILE_TYPE.FLOOR;
-    if (this.tileSprites[ty]?.[tx]) this.tileSprites[ty][tx].setTexture('tile_floor');
+    if (this.tileSprites[ty]?.[tx]) this.tileSprites[ty][tx].setTexture('tile_chest_open');
     const inv = GameState.player.get('inventory');
     const loot = rollLoot(chest.rarity, this.rng, fd.floor || GameState.floor);
     let found = 0;
@@ -4345,6 +4401,165 @@ class DungeonScene extends Phaser.Scene {
     else           GameState.addMessage('Chest was empty!', '#888888');
     window.showToast('Chest opened!', found > 0 ? 'rare' : '');
     this._updateHUD();
+  }
+
+  // Returns a Set of "x,y" strings for all monster positions (excludes optional id)
+  _monsterBlockedSet(excludeId = null) {
+    const blocked = new Set();
+    for (const m of GameState.world.queryTag('monster')) {
+      if (excludeId !== null && m.id === excludeId) continue;
+      const mp = m.get('pos');
+      if (mp) blocked.add(`${mp.x},${mp.y}`);
+    }
+    return blocked;
+  }
+
+  // ── Key-hold repeat movement ───────────────────────────────────────
+  _startKeyRepeat(dx, dy) {
+    this._stopKeyRepeat();
+    this._keyRepeatDir = { dx, dy };
+    this._keyRepeatTimer = this.time.delayedCall(220, () => this._doKeyRepeat());
+  }
+
+  _stopKeyRepeat() {
+    if (this._keyRepeatTimer) { this._keyRepeatTimer.remove(false); this._keyRepeatTimer = null; }
+    this._keyRepeatDir = null;
+  }
+
+  _doKeyRepeat() {
+    if (!this._keyRepeatDir) return;
+    const { dx, dy } = this._keyRepeatDir;
+    const pos = GameState.player?.get('pos');
+    if (!pos) return;
+    const bx = pos.x, by = pos.y;
+    this._tryMove(dx, dy);
+    // Stop if movement was blocked (wall, monster, etc.)
+    if (pos.x === bx && pos.y === by) { this._stopKeyRepeat(); return; }
+    this._keyRepeatTimer = this.time.delayedCall(120, () => this._doKeyRepeat());
+  }
+
+  // ── Debug menus (Shift+P / Shift+I) ──────────────────────────────
+  _openDebugItemMenu() {
+    const W = this.scale.width, H = this.scale.height;
+    const overlay = this.add.rectangle(W/2, H/2, W, H, 0x000000, 0.85)
+      .setScrollFactor(0).setDepth(500).setInteractive();
+    const container = this.add.container(0, 0).setDepth(501).setScrollFactor(0);
+
+    const panelW = Math.min(720, W - 40), panelH = Math.min(520, H - 40);
+    const px = W/2 - panelW/2, py = H/2 - panelH/2;
+    const bg = this.add.rectangle(W/2, H/2, panelW, panelH, 0x0d0d1a, 0.98)
+      .setStrokeStyle(2, 0xffaa00).setScrollFactor(0);
+    container.add(bg);
+
+    const title = this.add.text(W/2, py + 12, '🎁 GIVE ITEM [DEBUG]', {
+      fontFamily:'"Press Start 2P"', fontSize:'10px', color:'#ffaa00'
+    }).setOrigin(0.5, 0).setScrollFactor(0);
+    container.add(title);
+
+    const close = () => { overlay.destroy(); container.destroy(); };
+    const closeBtn = this.add.text(px + panelW - 10, py + 8, '✕', {
+      fontFamily:'"Press Start 2P"', fontSize:'14px', color:'#ff4444'
+    }).setOrigin(1, 0).setScrollFactor(0).setInteractive({useHandCursor:true});
+    closeBtn.on('pointerdown', close);
+    container.add(closeBtn);
+
+    const cols = 4, colW = (panelW - 20) / cols, rowH = 32;
+    let col = 0, row = 0;
+    const startY = py + 42;
+
+    for (const item of Object.values(ITEMS)) {
+      const bx2 = px + 10 + col * colW + colW/2;
+      const by2 = startY + row * rowH;
+      if (by2 + rowH > py + panelH - 8) break;
+      const btn = this.add.text(bx2, by2, `${item.icon||'•'} ${item.name}`, {
+        fontFamily:'monospace', fontSize:'10px', color:'#cccccc',
+        backgroundColor:'#181830', padding:{x:4,y:3}
+      }).setOrigin(0.5, 0).setScrollFactor(0).setInteractive({useHandCursor:true});
+      btn.on('pointerover', () => btn.setStyle({color:'#ffd700'}));
+      btn.on('pointerout',  () => btn.setStyle({color:'#cccccc'}));
+      btn.on('pointerdown', () => {
+        const inv = GameState.player?.get('inventory');
+        if (inv && inv.items.length < inv.maxSize) {
+          inv.items.push({...item, count:1, identified:true});
+          GameState.addMessage(`[DEBUG] Got ${item.name}!`, '#ffaa00');
+          window.showToast(`+${item.name}`, 'rare');
+        } else { GameState.addMessage('[DEBUG] Inventory full!', '#888888'); }
+      });
+      container.add(btn);
+      col++; if (col >= cols) { col = 0; row++; }
+    }
+    this.input.keyboard.once('keydown-ESC', close);
+  }
+
+  _openDebugSpellMenu() {
+    const W = this.scale.width, H = this.scale.height;
+    const overlay = this.add.rectangle(W/2, H/2, W, H, 0x000000, 0.85)
+      .setScrollFactor(0).setDepth(500).setInteractive();
+    const container = this.add.container(0, 0).setDepth(501).setScrollFactor(0);
+
+    const panelW = Math.min(720, W - 40), panelH = Math.min(560, H - 40);
+    const px = W/2 - panelW/2, py = H/2 - panelH/2;
+    const bg = this.add.rectangle(W/2, H/2, panelW, panelH, 0x0d0d1a, 0.98)
+      .setStrokeStyle(2, 0xaa44ff).setScrollFactor(0);
+    container.add(bg);
+
+    const title = this.add.text(W/2, py + 12, '✨ GIVE SPELL / SKILL [DEBUG]', {
+      fontFamily:'"Press Start 2P"', fontSize:'10px', color:'#aa44ff'
+    }).setOrigin(0.5, 0).setScrollFactor(0);
+    container.add(title);
+
+    const close = () => { overlay.destroy(); container.destroy(); };
+    const closeBtn = this.add.text(px + panelW - 10, py + 8, '✕', {
+      fontFamily:'"Press Start 2P"', fontSize:'14px', color:'#ff4444'
+    }).setOrigin(1, 0).setScrollFactor(0).setInteractive({useHandCursor:true});
+    closeBtn.on('pointerdown', close);
+    container.add(closeBtn);
+
+    const addRow = (label, color, items, getLabel, onClick) => {
+      container.add(this.add.text(px + 10, label.y, label.text, {
+        fontFamily:'"Press Start 2P"', fontSize:'8px', color
+      }).setScrollFactor(0));
+      let cx = px + 10, cy = label.y + 18;
+      for (const it of items) {
+        const btn = this.add.text(cx, cy, getLabel(it), {
+          fontFamily:'monospace', fontSize:'10px', color:'#cccccc',
+          backgroundColor:'#181830', padding:{x:4,y:3}
+        }).setScrollFactor(0).setInteractive({useHandCursor:true});
+        btn.on('pointerover', () => btn.setStyle({color:'#ffd700'}));
+        btn.on('pointerout',  () => btn.setStyle({color:'#cccccc'}));
+        btn.on('pointerdown', () => onClick(it));
+        container.add(btn);
+        cx += btn.width + 6;
+        if (cx > px + panelW - 80) { cx = px + 10; cy += 26; }
+      }
+      return cy + 26;
+    };
+
+    let y = py + 42;
+    y = addRow({y, text:'— SPELLS —'}, '#4488ff', Object.values(SPELLS),
+      s => `${s.icon||'•'} ${s.name}`,
+      s => {
+        const sk = GameState.player?.get('skills');
+        if (!sk) return;
+        if (!sk.known.find(e=>e.id===s.id)) {
+          sk.known.push({id:s.id, level:1});
+          GameState.addMessage(`[DEBUG] Learned spell: ${s.name}!`, '#aa44ff');
+        } else { GameState.addMessage(`[DEBUG] Already know ${s.name}`, '#888888'); }
+      });
+
+    y += 4;
+    addRow({y, text:'— SKILLS —'}, '#ff8844', Object.values(SKILL_TREE),
+      s => `${s.icon||'•'} ${s.name}`,
+      s => {
+        const sk = GameState.player?.get('skills');
+        if (!sk) return;
+        if (!sk.known.find(e=>e.id===s.id)) {
+          sk.known.push({id:s.id, level:1, active:false});
+          GameState.addMessage(`[DEBUG] Learned skill: ${s.name}!`, '#ff8844');
+        } else { GameState.addMessage(`[DEBUG] Already know ${s.name}`, '#888888'); }
+      });
+
+    this.input.keyboard.once('keydown-ESC', close);
   }
 
   _buildTouchControls() {
@@ -5344,13 +5559,22 @@ class DungeonScene extends Phaser.Scene {
     const mPos = monster.get('pos');
     const mAI  = monster.get('ai');
 
-    // A* pathfinding
+    // A* pathfinding — treat other monsters as walls
     if (!mAI.path || mAI.path.length === 0) {
+      const mBlocked = new Set();
+      for (const om of GameState.world.queryTag('monster')) {
+        if (om.id === monster.id) continue;
+        const omp = om.get('pos');
+        if (omp) mBlocked.add(`${omp.x},${omp.y}`);
+      }
       mAI.path = astar(
         fd.tiles, mPos.x, mPos.y, pPos.x, pPos.y,
         (x,y) => {
           const t = fd.tiles[y]?.[x];
-          return t !== undefined && t !== TILE_TYPE.WALL && t !== TILE_TYPE.LAVA;
+          if (t === undefined || t === TILE_TYPE.WALL || t === TILE_TYPE.LAVA) return false;
+          if (x === pPos.x && y === pPos.y) return true; // always allow target
+          if (mBlocked.has(`${x},${y}`)) return false;
+          return true;
         }, 20
       );
     }
